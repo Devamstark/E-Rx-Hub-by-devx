@@ -1,7 +1,7 @@
 
-import React, { useRef } from 'react';
+import React from 'react';
 import { Prescription } from '../../types';
-import { X, Printer, CheckCircle, FileText, ClipboardList } from 'lucide-react';
+import { X, Printer, CheckCircle, FileText, ClipboardList, Share2 } from 'lucide-react';
 import ReactDOMServer from 'react-dom/server';
 import { PrintLayout } from '../ui/PrintLayout';
 
@@ -47,6 +47,25 @@ export const PrescriptionModal: React.FC<PrescriptionModalProps> = ({
     }
   };
 
+  const handleShare = () => {
+    const text = `*DevXWorld e-Prescription*
+Dr. ${prescription.doctorName}
+Patient: ${prescription.patientName} (${prescription.patientAge}Y, ${prescription.patientGender})
+Diagnosis: ${prescription.diagnosis}
+
+*Medicines:*
+${prescription.medicines.map(m => `- ${m.name} (${m.dosage}) | ${m.frequency} | ${m.duration}`).join('\n')}
+
+*Advice:* ${prescription.advice || 'None'}
+
+Rx ID: ${prescription.id}
+Date: ${new Date(prescription.date).toLocaleDateString()}
+    `.trim();
+
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
+  };
+
   return (
     <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-slate-200 flex flex-col">
@@ -61,8 +80,16 @@ export const PrescriptionModal: React.FC<PrescriptionModalProps> = ({
           </div>
           <div className="flex items-center gap-2">
             <button 
+                onClick={handleShare}
+                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm font-medium flex items-center transition-colors shadow-sm border border-green-500"
+                title="Share via WhatsApp"
+            >
+                <Share2 className="w-4 h-4 mr-2" /> WhatsApp
+            </button>
+            <button 
                 onClick={handlePrint}
                 className="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded text-sm font-medium flex items-center transition-colors"
+                title="Print PDF"
             >
                 <Printer className="w-4 h-4 mr-2" /> Print
             </button>
