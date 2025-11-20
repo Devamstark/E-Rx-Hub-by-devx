@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Layout } from './components/ui/Layout';
 import { Login } from './components/auth/Login';
@@ -16,12 +17,36 @@ function App() {
   const [registeredUsers, setRegisteredUsers] = useState<User[]>([]);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
 
-  // --- Initialization ---
+  // --- Initialization & Session Restore ---
   useEffect(() => {
       const init = async () => {
           const { users, rx } = await dbService.loadData();
           setRegisteredUsers(users);
           setPrescriptions(rx);
+
+          // Restore Session
+          try {
+              const storedSessionId = localStorage.getItem('devx_active_session_id');
+              if (storedSessionId) {
+                  // Find the user in the fresh data to ensure they still exist and have correct role/status
+                  const validUser = users.find(u => u.id === storedSessionId);
+                  
+                  if (validUser) {
+                      // Optional: Security check (e.g. if they were terminated since last login)
+                      if (validUser.verificationStatus === VerificationStatus.TERMINATED) {
+                          localStorage.removeItem('devx_active_session_id');
+                      } else {
+                          setCurrentUser(validUser);
+                      }
+                  } else {
+                      // User ID in storage no longer exists in DB
+                      localStorage.removeItem('devx_active_session_id');
+                  }
+              }
+          } catch (e) {
+              console.error("Session restore error:", e);
+          }
+
           setIsLoaded(true);
       };
       init();
@@ -40,6 +65,16 @@ function App() {
           dbService.savePrescriptions(prescriptions);
       }
   }, [prescriptions, isLoaded]);
+
+  // Sync currentUser state with registeredUsers updates (e.g., if Admin changes current user's status)
+  useEffect(() => {
+      if (currentUser && isLoaded) {
+          const freshUser = registeredUsers.find(u => u.id === currentUser.id);
+          if (freshUser && JSON.stringify(freshUser) !== JSON.stringify(currentUser)) {
+              setCurrentUser(freshUser);
+          }
+      }
+  }, [registeredUsers, currentUser, isLoaded]);
 
 
   // Filter Verified Pharmacies for Doctor View
@@ -91,10 +126,14 @@ function App() {
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
+    // Persist session
+    localStorage.setItem('devx_active_session_id', user.id);
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
+    // Clear session
+    localStorage.removeItem('devx_active_session_id');
   };
 
   const handleDoctorVerificationComplete = (profile: DoctorProfile) => {
