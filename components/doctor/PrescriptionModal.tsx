@@ -30,15 +30,19 @@ export const PrescriptionModal: React.FC<PrescriptionModalProps> = ({
     if (printWindow) {
       const content = ReactDOMServer.renderToString(<PrintLayout rx={prescription} />);
       
+      // Set title for print header/footer
+      const printTitle = `Sent by DevXWorld - ${prescription.id}`;
+
       printWindow.document.write(`
         <html>
           <head>
-            <title>Print Prescription - ${prescription.id}</title>
+            <title>${printTitle}</title>
             <script src="https://cdn.tailwindcss.com"></script>
             <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
             <style>
               @media print {
                 body { -webkit-print-color-adjust: exact; }
+                @page { margin: 10mm; size: A4; }
               }
               .font-script { font-family: 'Dancing Script', cursive; }
             </style>

@@ -1,10 +1,11 @@
 
 import React, { useState } from 'react';
-import { DoctorProfile, VerificationStatus, Prescription, User } from '../../types';
+import { DoctorProfile, VerificationStatus, Prescription, User, Patient } from '../../types';
 import { DoctorVerification } from './DoctorVerification';
 import { CreatePrescription } from './CreatePrescription';
-import { ClipboardList, User as UserIcon, History, Bell, Eye } from 'lucide-react';
+import { ClipboardList, User as UserIcon, History, Bell, Eye, Users } from 'lucide-react';
 import { PrescriptionModal } from './PrescriptionModal';
+import { PatientManager } from './PatientManager';
 
 interface DoctorDashboardProps {
   status: VerificationStatus;
@@ -13,6 +14,9 @@ interface DoctorDashboardProps {
   onCreatePrescription: (rx: Prescription) => void;
   currentUser: User;
   verifiedPharmacies: User[];
+  patients: Patient[];
+  onAddPatient: (p: Patient) => void;
+  onUpdatePatient: (p: Patient) => void;
 }
 
 export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ 
@@ -21,9 +25,12 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
     prescriptions,
     onCreatePrescription,
     currentUser,
-    verifiedPharmacies
+    verifiedPharmacies,
+    patients,
+    onAddPatient,
+    onUpdatePatient
 }) => {
-  const [view, setView] = useState<'NEW_RX' | 'HISTORY'>('NEW_RX');
+  const [view, setView] = useState<'NEW_RX' | 'HISTORY' | 'PATIENTS'>('NEW_RX');
   const [selectedRx, setSelectedRx] = useState<Prescription | null>(null);
 
   // Filter prescriptions for this specific doctor
@@ -63,10 +70,16 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                     <ClipboardList className="w-5 h-5"/> <span>Create Prescription</span>
                 </button>
                 <button 
+                     onClick={() => setView('PATIENTS')}
+                     className={`w-full flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${view === 'PATIENTS' ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}
+                >
+                    <Users className="w-5 h-5"/> <span>My Patients</span>
+                </button>
+                <button 
                      onClick={() => setView('HISTORY')}
                      className={`w-full flex items-center space-x-3 px-3 py-2 rounded-md transition-colors ${view === 'HISTORY' ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-600 hover:bg-slate-50'}`}
                 >
-                    <History className="w-5 h-5"/> <span>History / Logs</span>
+                    <History className="w-5 h-5"/> <span>Rx Logs</span>
                 </button>
                 <button className="w-full flex items-center space-x-3 px-3 py-2 rounded-md text-slate-600 hover:bg-slate-50">
                     <Bell className="w-5 h-5"/> <span>Notifications</span>
@@ -77,13 +90,28 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
 
       {/* Main Workspace */}
       <div className="lg:col-span-9">
-        {view === 'NEW_RX' ? (
+        {view === 'NEW_RX' && (
             <CreatePrescription 
                 currentUser={currentUser}
                 onPrescriptionSent={(rx) => { onCreatePrescription(rx); setView('HISTORY'); }}
                 verifiedPharmacies={verifiedPharmacies}
+                patients={patients}
             />
-        ) : (
+        )}
+
+        {view === 'PATIENTS' && (
+            <div className="bg-white rounded-lg shadow border border-slate-200 p-6">
+                <h2 className="text-xl font-bold text-slate-800 mb-4">Patient Management</h2>
+                <PatientManager 
+                    doctorId={currentUser.id} 
+                    patients={patients} 
+                    onAddPatient={onAddPatient}
+                    onUpdatePatient={onUpdatePatient}
+                />
+            </div>
+        )}
+
+        {view === 'HISTORY' && (
             <div className="bg-white rounded-lg shadow border border-slate-200 p-6">
                 <h2 className="text-xl font-bold text-slate-800 mb-4">Prescription History</h2>
                 <div className="overflow-x-auto">

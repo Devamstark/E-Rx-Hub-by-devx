@@ -1,6 +1,6 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { User, Prescription, UserRole, VerificationStatus } from '../types';
+import { User, Prescription, UserRole, VerificationStatus, Patient } from '../types';
 
 // --- Default Initial State (Used if DB is empty) ---
 const INITIAL_USERS: User[] = [
@@ -16,10 +16,6 @@ const INITIAL_USERS: User[] = [
 ];
 
 // --- Credentials ---
-// 1. Environment Variables (Best Practice)
-// 2. Local Storage Overrides (Manual Entry via UI)
-// 3. Hardcoded Fallback (For immediate user convenience based on provided key)
-
 const FALLBACK_URL = 'https://xqhvjabpsiimxjpbhbih.supabase.co';
 const FALLBACK_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxaHZqYWJwc2lpbXhqcGJoYmloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM2MzM3MTcsImV4cCI6MjA3OTIwOTcxN30._IUN318q5XbhV-VU8RAPTSuWh2NLqK2GK0P_Qzg9GuQ';
 
@@ -69,7 +65,12 @@ const local = {
         const s = localStorage.getItem('devx_prescriptions');
         return s ? JSON.parse(s) : [];
     },
-    setRx: (rx: Prescription[]) => localStorage.setItem('devx_prescriptions', JSON.stringify(rx))
+    setRx: (rx: Prescription[]) => localStorage.setItem('devx_prescriptions', JSON.stringify(rx)),
+    getPatients: (): Patient[] => {
+        const s = localStorage.getItem('devx_patients');
+        return s ? JSON.parse(s) : [];
+    },
+    setPatients: (patients: Patient[]) => localStorage.setItem('devx_patients', JSON.stringify(patients))
 };
 
 // --- DB Service API ---
@@ -88,9 +89,9 @@ export const dbService = {
         window.location.reload();
     },
 
-    async loadData(): Promise<{ users: User[], rx: Prescription[] }> {
+    async loadData(): Promise<{ users: User[], rx: Prescription[], patients: Patient[] }> {
         if (!supabase) {
-            return { users: local.getUsers(), rx: local.getRx() };
+            return { users: local.getUsers(), rx: local.getRx(), patients: local.getPatients() };
         }
 
         try {
@@ -108,20 +109,28 @@ export const dbService = {
                 .eq('id', 'global_prescriptions')
                 .single();
             
+            // Load Patients
+            const { data: patientData } = await supabase
+                .from('patients')
+                .select('data')
+                .eq('id', 'global_patients')
+                .single();
+            
             // Parse or Default
             const users = (userData && userData.data) ? userData.data : INITIAL_USERS;
             const rx = (rxData && rxData.data) ? rxData.data : [];
+            const patients = (patientData && patientData.data) ? patientData.data : [];
 
             // If cloud is empty (first run), sync initial local defaults to cloud
             if (userError && users === INITIAL_USERS) {
                  await this.saveUsers(INITIAL_USERS);
             }
 
-            return { users, rx };
+            return { users, rx, patients };
         } catch (e) {
             console.error("DB Load Error:", e);
             // Fallback to local on error to prevent app crash
-            return { users: local.getUsers(), rx: local.getRx() };
+            return { users: local.getUsers(), rx: local.getRx(), patients: local.getPatients() };
         }
     },
 
@@ -130,7 +139,6 @@ export const dbService = {
             local.setUsers(users);
             return;
         }
-        // Sync to Cloud (Upsert single JSON blob for prototype simplicity)
         await supabase.from('users').upsert({ id: 'global_users', data: users });
     },
 
@@ -142,13 +150,23 @@ export const dbService = {
         await supabase.from('prescriptions').upsert({ id: 'global_prescriptions', data: rx });
     },
 
+    async savePatients(patients: Patient[]): Promise<void> {
+        if (!supabase) {
+            local.setPatients(patients);
+            return;
+        }
+        // Try to save to patients table, handling if table doesn't exist gracefully (though UI wont help much there)
+        try {
+            await supabase.from('patients').upsert({ id: 'global_patients', data: patients });
+        } catch (e) {
+            console.warn("Could not save patients to cloud. Ensure 'patients' table exists.", e);
+        }
+    },
+
     async uploadFile(file: File): Promise<string> {
-        // Validates file size (5MB limit)
         if (file.size > 5 * 1024 * 1024) {
             throw new Error("File size exceeds 5MB limit.");
         }
-
-        // 1. Try Cloud Upload
         if (supabase) {
             try {
                 const fileName = `${Date.now()}_${file.name.replace(/\s/g, '_')}`;
@@ -157,8 +175,7 @@ export const dbService = {
                     .upload(fileName, file);
 
                 if (error) {
-                    console.warn("Cloud upload failed, falling back to local base64", error);
-                    // Fallback to base64 if bucket doesn't exist or permissions fail
+                    console.warn("Cloud upload failed", error);
                 } else if (data) {
                     const { data: publicUrl } = supabase.storage
                         .from('documents')
@@ -169,9 +186,6 @@ export const dbService = {
                 console.warn("Supabase storage exception", e);
             }
         }
-
-        // 2. Local Fallback (Base64 Data URI)
-        // This ensures the feature works even without setting up Supabase Storage buckets
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.readAsDataURL(file);

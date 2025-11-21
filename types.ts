@@ -60,6 +60,33 @@ export interface InventoryItem {
   unitPrice: number;
 }
 
+export interface Patient {
+  id: string;
+  doctorId: string; // Links patient to the specific doctor
+  fullName: string;
+  dateOfBirth: string;
+  gender: 'Male' | 'Female' | 'Other';
+  phone: string;
+  address: string;
+  emergencyContact?: string;
+  
+  // Vitals & Physical
+  height?: string; // cm
+  weight?: string; // kg
+  bloodGroup?: string;
+
+  // Medical History
+  allergies: string[]; // Drug, Food, etc.
+  chronicConditions: string[]; // Diabetes, HTN, etc.
+  pastSurgeries?: string;
+  currentMedications?: string;
+  familyHistory?: string;
+  
+  notes?: string;
+  registeredAt: string;
+  lastVisit?: string;
+}
+
 export interface User {
   id: string;
   name: string;

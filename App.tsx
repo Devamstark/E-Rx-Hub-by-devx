@@ -5,7 +5,7 @@ import { Login } from './components/auth/Login';
 import { DoctorDashboard } from './components/doctor/DoctorDashboard';
 import { PharmacyDashboard } from './components/pharmacy/PharmacyDashboard';
 import { AdminDashboard } from './components/admin/AdminDashboard';
-import { User, UserRole, VerificationStatus, DoctorProfile, Prescription } from './types';
+import { User, UserRole, VerificationStatus, DoctorProfile, Prescription, Patient } from './types';
 import { dbService } from './services/db';
 import { Loader2 } from 'lucide-react';
 
@@ -16,30 +16,28 @@ function App() {
   // Application State
   const [registeredUsers, setRegisteredUsers] = useState<User[]>([]);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
 
   // --- Initialization & Session Restore ---
   useEffect(() => {
       const init = async () => {
-          const { users, rx } = await dbService.loadData();
+          const { users, rx, patients: loadedPatients } = await dbService.loadData();
           setRegisteredUsers(users);
           setPrescriptions(rx);
+          setPatients(loadedPatients);
 
           // Restore Session
           try {
               const storedSessionId = localStorage.getItem('devx_active_session_id');
               if (storedSessionId) {
-                  // Find the user in the fresh data to ensure they still exist and have correct role/status
                   const validUser = users.find(u => u.id === storedSessionId);
-                  
                   if (validUser) {
-                      // Optional: Security check (e.g. if they were terminated since last login)
                       if (validUser.verificationStatus === VerificationStatus.TERMINATED) {
                           localStorage.removeItem('devx_active_session_id');
                       } else {
                           setCurrentUser(validUser);
                       }
                   } else {
-                      // User ID in storage no longer exists in DB
                       localStorage.removeItem('devx_active_session_id');
                   }
               }
@@ -53,7 +51,6 @@ function App() {
   }, []);
 
   // --- Persistence Listeners ---
-  // Only save when data changes AND after initial load (to prevent overwriting cloud with empty defaults)
   useEffect(() => {
       if (isLoaded) {
           dbService.saveUsers(registeredUsers);
@@ -66,7 +63,13 @@ function App() {
       }
   }, [prescriptions, isLoaded]);
 
-  // Sync currentUser state with registeredUsers updates (e.g., if Admin changes current user's status)
+  useEffect(() => {
+      if (isLoaded) {
+          dbService.savePatients(patients);
+      }
+  }, [patients, isLoaded]);
+
+  // Sync currentUser state with registeredUsers updates
   useEffect(() => {
       if (currentUser && isLoaded) {
           const freshUser = registeredUsers.find(u => u.id === currentUser.id);
@@ -116,7 +119,7 @@ function App() {
   };
 
   const handleResetPassword = (userId: string) => {
-    const tempPassword = Math.random().toString(36).slice(-8); // Generate random 8-char password
+    const tempPassword = Math.random().toString(36).slice(-8); 
     setRegisteredUsers(prev =>
         prev.map(u => u.id === userId ? { ...u, password: tempPassword, forcePasswordChange: true } : u)
     );
@@ -124,16 +127,12 @@ function App() {
   };
 
   const handleCreatePrescription = (rxData: Prescription) => {
-    // Sequential ID Generation Logic
     const currentCount = prescriptions.length + 1;
-    // Pad with zeros to 9 digits: 000000001
     const sequentialId = currentCount.toString().padStart(9, '0');
-
     const newRxWithId: Prescription = {
         ...rxData,
         id: sequentialId
     };
-    
     setPrescriptions(prev => [newRxWithId, ...prev]);
   };
 
@@ -143,26 +142,30 @@ function App() {
     );
   };
 
+  const handleAddPatient = (patient: Patient) => {
+    setPatients(prev => [...prev, patient]);
+  };
+
+  const handleUpdatePatient = (updatedPatient: Patient) => {
+    setPatients(prev => prev.map(p => p.id === updatedPatient.id ? updatedPatient : p));
+  };
+
   const handleLogin = (user: User) => {
     setCurrentUser(user);
-    // Persist session
     localStorage.setItem('devx_active_session_id', user.id);
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
-    // Clear session
     localStorage.removeItem('devx_active_session_id');
   };
 
   const handleDoctorVerificationComplete = (profile: DoctorProfile) => {
-      // Merge the profile data into the User object
       if (!currentUser) return;
 
       const updatedUser: User = {
           ...currentUser,
-          verificationStatus: VerificationStatus.PENDING, // Set back to pending for admin review
-          // Map profile fields to User fields for persistence
+          verificationStatus: VerificationStatus.PENDING,
           licenseNumber: profile.registrationNumber,
           state: profile.state,
           qualifications: profile.qualifications,
@@ -181,8 +184,6 @@ function App() {
       handleUpdateUser(updatedUser);
       alert("Details submitted to Admin for re-verification.");
   };
-
-  // --- Render ---
 
   if (!isLoaded) {
       return (
@@ -213,6 +214,9 @@ function App() {
                 onCreatePrescription={handleCreatePrescription}
                 currentUser={currentUser}
                 verifiedPharmacies={verifiedPharmacies}
+                patients={patients}
+                onAddPatient={handleAddPatient}
+                onUpdatePatient={handleUpdatePatient}
             />
           )}
           {currentUser.role === UserRole.PHARMACY && (
