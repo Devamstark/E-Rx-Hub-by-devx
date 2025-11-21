@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { Medicine, Prescription, User } from '../../types';
-import { Plus, Trash2, Send, BrainCircuit, FileText, AlertTriangle, Info, Video } from 'lucide-react';
+import { Plus, Trash2, Send, BrainCircuit, FileText, AlertTriangle, Info, Video, User as UserIcon } from 'lucide-react';
 import { analyzePrescriptionSafety } from '../../services/geminiService';
 import { COMMON_MEDICINES } from '../../constants';
 
@@ -117,6 +117,21 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({ currentU
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
+        {/* Letterhead Preview */}
+        <div className="bg-slate-50 p-4 rounded-md border border-slate-200 flex items-start gap-3">
+            <div className="p-2 bg-white rounded-full border border-slate-200">
+                <UserIcon className="w-5 h-5 text-slate-500" />
+            </div>
+            <div>
+                <p className="text-xs font-bold text-slate-500 uppercase mb-1">Prescribing As</p>
+                <p className="font-bold text-slate-900 text-sm">Dr. {currentUser.name}</p>
+                <p className="text-xs text-indigo-700 font-medium">
+                    {currentUser.qualifications} {currentUser.specialty ? `• ${currentUser.specialty}` : ''}
+                </p>
+                <p className="text-xs text-slate-500 mt-0.5">{currentUser.clinicName}, {currentUser.city}</p>
+            </div>
+        </div>
+
         {/* Patient Info */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>

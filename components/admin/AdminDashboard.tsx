@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { ShieldAlert, Plus, CheckCircle2, AlertTriangle, Trash2, FileText, Activity, RefreshCw, Ban, File } from 'lucide-react';
+import { ShieldAlert, Plus, CheckCircle2, AlertTriangle, Trash2, FileText, Activity, RefreshCw, Ban, File, X, Stethoscope, Building2, Eye, Mail, Phone as PhoneIcon, MapPin, Calendar, Edit2, Save as SaveIcon } from 'lucide-react';
 import { AdminRole, AdminPermission, AdminUser, User, UserRole, VerificationStatus, Prescription, UserDocument } from '../../types';
 
 interface AdminDashboardProps {
@@ -10,6 +9,7 @@ interface AdminDashboardProps {
     onTerminateUser: (userId: string, reason: string) => void;
     onDeleteUser: (userId: string) => void;
     onResetPassword: (userId: string) => void;
+    onEditUser: (user: User) => void;
 }
 
 // --- Mock Data for Internal Admin Management ---
@@ -46,6 +46,287 @@ const getPermissionsForRole = (role: AdminRole): AdminPermission[] => {
             return [];
     }
 };
+
+const UserProfileModal = ({ user, onClose, onSave }: { user: User; onClose: () => void; onSave: (u: User) => void }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState<User>(user);
+
+  const handleChange = (key: keyof User, value: any) => {
+      setFormData(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSave = () => {
+      onSave(formData);
+      setIsEditing(false);
+  };
+
+  const EditInput = ({ label, valueKey, placeholder }: { label: string, valueKey: keyof User, placeholder?: string }) => (
+    <div className="mb-3">
+        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{label}</label>
+        <input 
+            className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            value={formData[valueKey] as string || ''}
+            onChange={e => handleChange(valueKey, e.target.value)}
+            placeholder={placeholder}
+        />
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-slate-200 flex flex-col">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center sticky top-0 z-10">
+                <div className="flex items-center gap-3">
+                    <div className={`h-10 w-10 rounded-full flex items-center justify-center ${user.role === 'DOCTOR' ? 'bg-indigo-100 text-indigo-600' : 'bg-purple-100 text-purple-600'}`}>
+                        {user.role === 'DOCTOR' ? <Stethoscope className="w-6 h-6"/> : <Building2 className="w-6 h-6"/>}
+                    </div>
+                    <div>
+                        {isEditing ? (
+                             <input 
+                                className="text-xl font-bold text-slate-900 bg-transparent border-b border-slate-300 focus:border-indigo-500 focus:outline-none w-full"
+                                value={formData.name}
+                                onChange={e => handleChange('name', e.target.value)}
+                             />
+                        ) : (
+                             <h3 className="text-xl font-bold text-slate-900 leading-none">{user.name}</h3>
+                        )}
+                        <span className="text-xs text-slate-500 font-mono">ID: {user.id}</span>
+                    </div>
+                    <span className={`text-xs px-2 py-1 rounded-full font-bold ml-2 ${
+                        user.verificationStatus === 'VERIFIED' ? 'bg-green-100 text-green-700' :
+                        user.verificationStatus === 'PENDING' ? 'bg-blue-100 text-blue-700' :
+                        'bg-red-100 text-red-700'
+                    }`}>
+                        {user.verificationStatus}
+                    </span>
+                </div>
+                <div className="flex items-center gap-2">
+                    {!isEditing ? (
+                        <button 
+                            onClick={() => setIsEditing(true)} 
+                            className="flex items-center gap-1 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded hover:bg-indigo-100 transition-colors text-sm font-medium"
+                        >
+                            <Edit2 className="w-4 h-4" /> Edit
+                        </button>
+                    ) : (
+                        <button 
+                            onClick={handleSave}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm font-medium shadow-sm"
+                        >
+                            <SaveIcon className="w-4 h-4" /> Save
+                        </button>
+                    )}
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-200 transition-colors">
+                        <X className="w-6 h-6" />
+                    </button>
+                </div>
+            </div>
+            
+            <div className="p-6 space-y-6 overflow-y-auto">
+                {/* Basic Info Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-100">
+                    <div>
+                        <div className="flex items-center text-xs font-bold text-slate-500 uppercase mb-1">
+                            <Mail className="w-3 h-3 mr-1"/> Email
+                        </div>
+                        {isEditing ? (
+                             <input 
+                                className="w-full border border-slate-300 rounded px-2 py-1 text-xs"
+                                value={formData.email}
+                                onChange={e => handleChange('email', e.target.value)}
+                             />
+                        ) : (
+                            <p className="text-sm font-medium text-slate-900 truncate" title={user.email}>{user.email}</p>
+                        )}
+                    </div>
+                    <div>
+                         <div className="flex items-center text-xs font-bold text-slate-500 uppercase mb-1">
+                            <PhoneIcon className="w-3 h-3 mr-1"/> Phone
+                        </div>
+                        {isEditing ? (
+                             <input 
+                                className="w-full border border-slate-300 rounded px-2 py-1 text-xs"
+                                value={formData.phone || ''}
+                                onChange={e => handleChange('phone', e.target.value)}
+                             />
+                        ) : (
+                             <p className="text-sm font-medium text-slate-900">{user.phone || 'N/A'}</p>
+                        )}
+                    </div>
+                    <div>
+                         <div className="flex items-center text-xs font-bold text-slate-500 uppercase mb-1">
+                            <Calendar className="w-3 h-3 mr-1"/> Registered On
+                        </div>
+                        <p className="text-sm font-medium text-slate-900">{new Date(user.registrationDate).toLocaleDateString()}</p>
+                    </div>
+                </div>
+
+                {/* DOCTOR SPECIFIC DETAILS */}
+                {user.role === 'DOCTOR' && (
+                    <>
+                        <div>
+                            <h4 className="font-bold text-slate-800 mb-3 flex items-center border-b border-slate-100 pb-2">
+                                <Stethoscope className="w-4 h-4 mr-2 text-indigo-600"/> Professional Credentials
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                                {isEditing ? (
+                                    <>
+                                        <EditInput label="Qualifications" valueKey="qualifications" />
+                                        <EditInput label="Specialty" valueKey="specialty" />
+                                        <EditInput label="State Medical Council" valueKey="stateCouncil" />
+                                        <EditInput label="State Reg. Number" valueKey="licenseNumber" />
+                                        <EditInput label="NMC UID" valueKey="nmrUid" />
+                                    </>
+                                ) : (
+                                    <>
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase block">Qualifications</label>
+                                            <p className="text-sm font-medium text-slate-900">{user.qualifications || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase block">Specialty</label>
+                                            <p className="text-sm font-medium text-slate-900">{user.specialty || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase block">State Medical Council</label>
+                                            <p className="text-sm font-medium text-slate-900">{user.stateCouncil || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase block">State Reg. Number</label>
+                                            <p className="text-sm font-medium text-slate-900 font-mono bg-slate-100 inline-block px-1 rounded">{user.licenseNumber || user['registrationNumber'] || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase block">NMC UID</label>
+                                            <p className="text-sm font-medium text-slate-900 font-mono bg-slate-100 inline-block px-1 rounded">{user.nmrUid || '-'}</p>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h4 className="font-bold text-slate-800 mt-6 mb-3 flex items-center border-b border-slate-100 pb-2">
+                                <Building2 className="w-4 h-4 mr-2 text-indigo-600"/> Clinic & Contact
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                                {isEditing ? (
+                                    <>
+                                        <div className="col-span-2">
+                                            <EditInput label="Clinic / Hospital Name" valueKey="clinicName" />
+                                        </div>
+                                        <div className="col-span-2">
+                                            <EditInput label="Address" valueKey="clinicAddress" />
+                                        </div>
+                                        <EditInput label="City" valueKey="city" />
+                                        <EditInput label="State" valueKey="state" />
+                                        <EditInput label="Pincode" valueKey="pincode" />
+                                        <EditInput label="Fax" valueKey="fax" />
+                                    </>
+                                ) : (
+                                    <>
+                                         <div className="col-span-2">
+                                            <label className="text-xs font-bold text-slate-500 uppercase block">Clinic / Hospital Name</label>
+                                            <p className="text-sm font-medium text-slate-900">{user.clinicName || '-'}</p>
+                                        </div>
+                                         <div className="col-span-2">
+                                            <label className="text-xs font-bold text-slate-500 uppercase block flex items-center"><MapPin className="w-3 h-3 mr-1"/> Address</label>
+                                            <p className="text-sm font-medium text-slate-900">
+                                                {user.clinicAddress || '-'}
+                                            </p>
+                                            <p className="text-sm text-slate-600">
+                                                {user.city}, {user.state} {user.pincode && `- ${user.pincode}`}
+                                            </p>
+                                        </div>
+                                        {user.fax && (
+                                            <div>
+                                                <label className="text-xs font-bold text-slate-500 uppercase block">Fax</label>
+                                                <p className="text-sm font-medium text-slate-900">{user.fax}</p>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                {/* PHARMACY SPECIFIC DETAILS */}
+                {user.role === 'PHARMACY' && (
+                    <>
+                        <div>
+                             <h4 className="font-bold text-slate-800 mb-3 flex items-center border-b border-slate-100 pb-2">
+                                <Building2 className="w-4 h-4 mr-2 text-purple-600"/> Establishment Details
+                            </h4>
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                                {isEditing ? (
+                                    <>
+                                        <EditInput label="License Number (Form 20/21)" valueKey="licenseNumber" />
+                                        <EditInput label="State" valueKey="state" />
+                                        <div className="col-span-2">
+                                            <EditInput label="Address" valueKey="clinicAddress" />
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase block">License Number (Form 20/21)</label>
+                                            <p className="text-sm font-medium text-slate-900 font-mono bg-slate-100 inline-block px-1 rounded">{user.licenseNumber || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-500 uppercase block">State</label>
+                                            <p className="text-sm font-medium text-slate-900">{user.state || '-'}</p>
+                                        </div>
+                                         <div className="col-span-2">
+                                            <label className="text-xs font-bold text-slate-500 uppercase block flex items-center"><MapPin className="w-3 h-3 mr-1"/> Address</label>
+                                            <p className="text-sm font-medium text-slate-900">{user.clinicAddress || '-'}</p>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </>
+                )}
+
+                {/* DOCUMENTS SECTION */}
+                <div>
+                    <h4 className="font-bold text-slate-800 mt-6 mb-3 flex items-center border-b border-slate-100 pb-2">
+                        <FileText className="w-4 h-4 mr-2 text-slate-600"/> Submitted Documents
+                    </h4>
+                    {user.documents && user.documents.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {user.documents.map((doc, i) => (
+                                <div key={i} className="flex items-center p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors group">
+                                    <div className="h-10 w-10 rounded bg-red-50 flex items-center justify-center mr-3 group-hover:bg-red-100 transition-colors">
+                                         <FileText className="w-6 h-6 text-red-500" />
+                                    </div>
+                                    <div className="overflow-hidden flex-1">
+                                        <p className="text-sm font-medium text-slate-700 truncate" title={doc.name}>{doc.name}</p>
+                                        <p className="text-[10px] text-slate-400 uppercase font-bold">{doc.type.replace('_', ' ')}</p>
+                                    </div>
+                                    <a href={doc.url} target="_blank" rel="noreferrer" className="text-xs bg-white border border-slate-300 text-slate-600 px-2 py-1 rounded hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all">
+                                        View
+                                    </a>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="bg-slate-50 border border-slate-100 rounded p-4 text-center">
+                            <p className="text-sm text-slate-500 italic">No documents uploaded.</p>
+                        </div>
+                    )}
+                </div>
+
+            </div>
+            <div className="p-4 border-t border-slate-200 bg-slate-50 text-right rounded-b-xl">
+                <button onClick={onClose} className="px-6 py-2 bg-white border border-slate-300 text-slate-700 rounded-md shadow-sm hover:bg-slate-50 text-sm font-medium transition-colors">
+                    Close Profile
+                </button>
+            </div>
+        </div>
+    </div>
+  );
+}
 
 const AnalyticsView = ({ users, prescriptions }: { users: User[], prescriptions: Prescription[] }) => {
     const doctors = users.filter(u => u.role === UserRole.DOCTOR);
@@ -202,14 +483,16 @@ const UserRegistry = ({
     onTerminate,
     onDelete,
     onReset,
-    onViewDocs
+    onViewDocs,
+    onViewProfile
 }: { 
     users: User[], 
     onAction: (id: string, status: VerificationStatus) => void,
     onTerminate: (id: string, reason: string) => void,
     onDelete: (id: string) => void,
     onReset: (id: string) => void,
-    onViewDocs: (docs: UserDocument[]) => void
+    onViewDocs: (docs: UserDocument[]) => void,
+    onViewProfile: (user: User) => void
 }) => {
     const [terminateModalUser, setTerminateModalUser] = useState<string | null>(null);
     const [terminationReason, setTerminationReason] = useState("");
@@ -251,7 +534,12 @@ const UserRegistry = ({
                         {filtered.map(u => (
                             <tr key={u.id} className="hover:bg-slate-50">
                                 <td className="px-6 py-4">
-                                    <div className="text-sm font-medium text-slate-900">{u.name}</div>
+                                    <div 
+                                        onClick={() => onViewProfile(u)}
+                                        className="text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer flex items-center gap-1"
+                                    >
+                                        {u.name}
+                                    </div>
                                     <div className="text-xs text-slate-500">ID: {u.id}</div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
@@ -480,103 +768,119 @@ const RoleManagement = () => {
     );
 };
 
-const AdminStats = ({ users, onFilter }: { users: User[], onFilter: (s: VerificationStatus | 'ALL') => void }) => {
-    const doctors = users.filter(u => u.role === UserRole.DOCTOR);
-    const pharmacies = users.filter(u => u.role === UserRole.PHARMACY);
-    
-    const pending = users.filter(u => u.verificationStatus === VerificationStatus.PENDING && u.role !== UserRole.ADMIN);
-    const active = users.filter(u => u.verificationStatus === VerificationStatus.VERIFIED && u.role !== UserRole.ADMIN);
-    const terminated = users.filter(u => u.verificationStatus === VerificationStatus.TERMINATED);
+const AdminStats = ({ users, onFilter }: { users: User[], onFilter: (status: VerificationStatus | 'ALL') => void }) => {
+    const pending = users.filter(u => u.verificationStatus === VerificationStatus.PENDING).length;
+    const verified = users.filter(u => u.verificationStatus === VerificationStatus.VERIFIED).length;
+    const terminated = users.filter(u => u.verificationStatus === VerificationStatus.TERMINATED).length;
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-             <div onClick={() => onFilter('ALL')} className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 cursor-pointer hover:border-indigo-400 transition-colors">
-                <p className="text-xs text-slate-500 uppercase font-bold">Total Reg.</p>
-                <p className="text-2xl font-bold text-slate-900">{users.length - 1}</p> {/* Exclude root admin */}
-                <p className="text-xs text-slate-400 mt-1">{doctors.length} Doc / {pharmacies.length} Ph</p>
-            </div>
-            <div onClick={() => onFilter(VerificationStatus.PENDING)} className="bg-blue-50 p-4 rounded-lg shadow-sm border border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors">
-                <p className="text-xs text-blue-600 uppercase font-bold">Pending Approval</p>
-                <p className="text-2xl font-bold text-blue-900">{pending.length}</p>
-                <p className="text-xs text-blue-600 mt-1">Action Required</p>
-            </div>
-            <div onClick={() => onFilter(VerificationStatus.VERIFIED)} className="bg-green-50 p-4 rounded-lg shadow-sm border border-green-200 cursor-pointer hover:bg-green-100 transition-colors">
-                <p className="text-xs text-green-600 uppercase font-bold">Active Users</p>
-                <p className="text-2xl font-bold text-green-900">{active.length}</p>
-                <p className="text-xs text-green-600 mt-1">Verified Access</p>
-            </div>
-            <div onClick={() => onFilter(VerificationStatus.TERMINATED)} className="bg-red-50 p-4 rounded-lg shadow-sm border border-red-200 cursor-pointer hover:bg-red-100 transition-colors">
-                <p className="text-xs text-red-600 uppercase font-bold">Terminated</p>
-                <p className="text-2xl font-bold text-red-900">{terminated.length}</p>
-                <p className="text-xs text-red-600 mt-1">Access Blocked</p>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <button onClick={() => onFilter('ALL')} className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 text-left hover:border-indigo-300 hover:shadow-md transition-all">
+                <div className="text-slate-500 text-xs font-bold uppercase">Total Users</div>
+                <div className="text-2xl font-bold text-slate-900 mt-1">{users.length}</div>
+            </button>
+            <button onClick={() => onFilter(VerificationStatus.PENDING)} className="bg-blue-50 p-4 rounded-lg shadow-sm border border-blue-200 text-left hover:border-blue-400 hover:shadow-md transition-all relative overflow-hidden">
+                <div className="text-blue-700 text-xs font-bold uppercase relative z-10">Pending Review</div>
+                <div className="text-2xl font-bold text-blue-900 mt-1 relative z-10">{pending}</div>
+                <Activity className="absolute right-2 bottom-2 w-12 h-12 text-blue-100 -z-0" />
+            </button>
+            <button onClick={() => onFilter(VerificationStatus.VERIFIED)} className="bg-green-50 p-4 rounded-lg shadow-sm border border-green-200 text-left hover:border-green-400 hover:shadow-md transition-all">
+                <div className="text-green-700 text-xs font-bold uppercase">Verified Active</div>
+                <div className="text-2xl font-bold text-green-900 mt-1">{verified}</div>
+            </button>
+            <button onClick={() => onFilter(VerificationStatus.TERMINATED)} className="bg-red-50 p-4 rounded-lg shadow-sm border border-red-200 text-left hover:border-red-400 hover:shadow-md transition-all">
+                <div className="text-red-700 text-xs font-bold uppercase">Terminated</div>
+                <div className="text-2xl font-bold text-red-900 mt-1">{terminated}</div>
+            </button>
         </div>
     );
 };
 
-const ApprovalQueue = ({ users, onAction, onViewDocs }: { users: User[], onAction: (id: string, status: VerificationStatus) => void, onViewDocs: (docs: UserDocument[]) => void }) => {
-    const pendingUsers = users.filter(u => u.verificationStatus === VerificationStatus.PENDING && u.role !== UserRole.ADMIN);
+const ApprovalQueue = ({ 
+    users, 
+    onAction, 
+    onViewDocs 
+}: { 
+    users: User[], 
+    onAction: (id: string, status: VerificationStatus) => void,
+    onViewDocs: (docs: UserDocument[]) => void 
+}) => {
+    const pendingUsers = users.filter(u => u.verificationStatus === VerificationStatus.PENDING);
 
     if (pendingUsers.length === 0) {
         return (
-            <div className="bg-white p-12 rounded-lg border border-slate-200 text-center">
-                <CheckCircle2 className="w-12 h-12 text-green-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-slate-900">All Caught Up!</h3>
-                <p className="text-slate-500">No pending applications to review.</p>
+            <div className="bg-white rounded-lg border border-dashed border-slate-300 p-8 text-center">
+                <CheckCircle2 className="w-12 h-12 text-green-100 mx-auto mb-3" />
+                <h3 className="text-slate-900 font-medium">All caught up!</h3>
+                <p className="text-slate-500 text-sm">No pending verifications in the queue.</p>
             </div>
         );
     }
 
     return (
         <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 bg-blue-50 flex items-center">
-                <ShieldAlert className="w-5 h-5 text-blue-600 mr-2" />
-                <h3 className="font-bold text-blue-900">Pending Applications ({pendingUsers.length})</h3>
+             <div className="px-6 py-4 border-b border-slate-200 bg-indigo-50 flex justify-between items-center">
+                <h3 className="font-bold text-indigo-900 flex items-center">
+                    <ShieldAlert className="w-5 h-5 mr-2" /> Verification Queue
+                </h3>
+                <span className="bg-indigo-200 text-indigo-800 text-xs font-bold px-2 py-1 rounded-full">{pendingUsers.length} Pending</span>
             </div>
-            <table className="min-w-full divide-y divide-slate-200">
-                <thead className="bg-slate-50">
-                    <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Applicant</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Role</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">License Details</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Docs</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Date</th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Decision</th>
-                    </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-slate-200">
-                    {pendingUsers.map(u => (
-                        <tr key={u.id}>
-                            <td className="px-6 py-4">
-                                <div className="text-sm font-medium text-slate-900">{u.name}</div>
-                                <div className="text-sm text-slate-500">{u.email}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                                <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${u.role === UserRole.DOCTOR ? 'bg-indigo-100 text-indigo-800' : 'bg-purple-100 text-purple-800'}`}>
-                                    {u.role}
+            <div className="divide-y divide-slate-100">
+                {pendingUsers.map(user => (
+                    <div key={user.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50">
+                        <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border ${user.role === 'DOCTOR' ? 'bg-teal-50 text-teal-700 border-teal-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>
+                                    {user.role}
                                 </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                                {u.licenseNumber} ({u.state})
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                                {u.documents && u.documents.length > 0 ? (
-                                    <button onClick={() => onViewDocs(u.documents!)} className="text-blue-600 hover:underline flex items-center text-xs font-medium">
-                                        <File className="w-4 h-4 mr-1"/> View
+                                <span className="text-xs text-slate-400 font-mono">ID: {user.id}</span>
+                            </div>
+                            <h4 className="text-lg font-bold text-slate-900">{user.name}</h4>
+                            <div className="text-sm text-slate-600 mt-1 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                                <p><span className="font-medium text-slate-500">License:</span> {user.licenseNumber || 'N/A'}</p>
+                                <p><span className="font-medium text-slate-500">Email:</span> {user.email}</p>
+                                {user.role === 'DOCTOR' && (
+                                    <>
+                                        <p><span className="font-medium text-slate-500">Qual:</span> {user.qualifications}</p>
+                                        <p><span className="font-medium text-slate-500">Specialty:</span> {user.specialty || '-'}</p>
+                                    </>
+                                )}
+                                {user.role === 'PHARMACY' && (
+                                    <p><span className="font-medium text-slate-500">Loc:</span> {user.city}, {user.state}</p>
+                                )}
+                            </div>
+                            
+                            <div className="mt-3 flex items-center gap-3">
+                                {user.documents && user.documents.length > 0 ? (
+                                    <button 
+                                        onClick={() => onViewDocs(user.documents!)}
+                                        className="text-xs flex items-center text-indigo-600 font-medium hover:underline bg-indigo-50 px-2 py-1 rounded"
+                                    >
+                                        <FileText className="w-3 h-3 mr-1"/> View {user.documents.length} Documents
                                     </button>
-                                ) : <span className="text-slate-400 text-xs">N/A</span>}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                                {new Date(u.registrationDate).toLocaleDateString()}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                                <button onClick={() => onAction(u.id, VerificationStatus.VERIFIED)} className="text-green-600 hover:text-green-900 bg-green-50 px-3 py-1 rounded border border-green-200 hover:bg-green-100">Approve</button>
-                                <button onClick={() => onAction(u.id, VerificationStatus.REJECTED)} className="text-red-600 hover:text-red-900 bg-red-50 px-3 py-1 rounded border border-red-200 hover:bg-red-100">Reject</button>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
+                                ) : (
+                                    <span className="text-xs text-red-500 flex items-center"><AlertTriangle className="w-3 h-3 mr-1"/> No Docs Uploaded</span>
+                                )}
+                            </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                            <button 
+                                onClick={() => onAction(user.id, VerificationStatus.REJECTED)}
+                                className="px-4 py-2 border border-red-200 text-red-700 rounded-md text-sm font-medium hover:bg-red-50 transition-colors"
+                            >
+                                Reject
+                            </button>
+                            <button 
+                                onClick={() => onAction(user.id, VerificationStatus.VERIFIED)}
+                                className="px-4 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700 shadow-sm transition-colors flex items-center"
+                            >
+                                <CheckCircle2 className="w-4 h-4 mr-2"/> Approve
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 };
@@ -587,11 +891,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     onUpdateStatus,
     onTerminateUser,
     onDeleteUser,
-    onResetPassword 
+    onResetPassword,
+    onEditUser
 }) => {
     const [activeView, setActiveView] = useState<'OVERVIEW' | 'REGISTRY' | 'ROLES' | 'ANALYTICS' | 'RX_LOGS'>('OVERVIEW');
     const [filterStatus, setFilterStatus] = useState<VerificationStatus | 'ALL'>('ALL');
     const [viewDocs, setViewDocs] = useState<UserDocument[] | null>(null);
+    const [profileUser, setProfileUser] = useState<User | null>(null);
 
     const displayedUsers = filterStatus === 'ALL' 
         ? users 
@@ -660,6 +966,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             onDelete={onDeleteUser}
                             onReset={onResetPassword}
                             onViewDocs={setViewDocs}
+                            onViewProfile={setProfileUser}
                         />
                     </div>
                 )}
@@ -707,6 +1014,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* User Profile Modal */}
+            {profileUser && (
+                <UserProfileModal 
+                    user={profileUser} 
+                    onClose={() => setProfileUser(null)} 
+                    onSave={(updatedUser) => {
+                        onEditUser(updatedUser);
+                        setProfileUser(updatedUser); // Update the view immediately
+                    }}
+                />
             )}
         </div>
     );

@@ -231,6 +231,7 @@ function App() {
               onTerminateUser={handleTerminateUser}
               onDeleteUser={handleDeleteUser}
               onResetPassword={handleResetPassword}
+              onEditUser={handleUpdateUser}
             />
           )}
         </div>

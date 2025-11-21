@@ -22,6 +22,7 @@ export const PrescriptionModal: React.FC<PrescriptionModalProps> = ({
   // Use snapshot details if available, else fallback to legacy/simple data
   const docName = prescription.doctorDetails?.name || prescription.doctorName;
   const docQual = prescription.doctorDetails?.qualifications || 'Registered Medical Practitioner';
+  const docSpecialty = prescription.doctorDetails?.specialty;
   const clinicName = prescription.doctorDetails?.clinicName || 'DevXWorld Network';
 
   const handlePrint = () => {
@@ -56,7 +57,7 @@ export const PrescriptionModal: React.FC<PrescriptionModalProps> = ({
 
   const handleShare = () => {
     const text = `*${clinicName}*
-Dr. ${docName} (${docQual})
+Dr. ${docName} (${docQual}${docSpecialty ? ' - ' + docSpecialty : ''})
 
 *Rx for:* ${prescription.patientName} (${prescription.patientAge}Y)
 *Diagnosis:* ${prescription.diagnosis}
@@ -111,7 +112,9 @@ ${prescription.medicines.map(m => `- ${m.name} (${m.dosage}) | ${m.frequency}`).
             <div>
               <p className="text-xs font-bold text-slate-400 uppercase mb-1">Prescribed By</p>
               <p className="text-lg font-bold text-slate-800">Dr. {docName}</p>
-              <p className="text-sm font-medium text-indigo-700">{docQual}</p>
+              <p className="text-sm font-medium text-indigo-700">
+                {docQual} {docSpecialty ? <span className="text-slate-500">• {docSpecialty}</span> : ''}
+              </p>
               <p className="text-xs text-slate-500 mt-1">{clinicName}</p>
             </div>
             <div className="sm:text-right">
