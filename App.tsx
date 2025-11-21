@@ -116,10 +116,11 @@ function App() {
   };
 
   const handleResetPassword = (userId: string) => {
+    const tempPassword = Math.random().toString(36).slice(-8); // Generate random 8-char password
     setRegisteredUsers(prev =>
-        prev.map(u => u.id === userId ? { ...u, forcePasswordChange: true } : u)
+        prev.map(u => u.id === userId ? { ...u, password: tempPassword, forcePasswordChange: true } : u)
     );
-    alert(`Temporary password sent to user ${userId}.`);
+    alert(`PASSWORD RESET SUCCESSFUL\n\nUser ID: ${userId}\nTemporary Password: ${tempPassword}\n\nPlease copy and share this password securely with the user.`);
   };
 
   const handleCreatePrescription = (newRx: Prescription) => {
