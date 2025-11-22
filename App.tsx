@@ -136,9 +136,19 @@ function App() {
     setPrescriptions(prev => [newRxWithId, ...prev]);
   };
 
-  const handleDispensePrescription = (rxId: string) => {
+  const handleDispensePrescription = (rxId: string, patientId?: string) => {
     setPrescriptions(prev => 
-        prev.map(rx => rx.id === rxId ? { ...rx, status: 'DISPENSED' } : rx)
+        prev.map(rx => rx.id === rxId ? { 
+            ...rx, 
+            status: 'DISPENSED',
+            patientId: patientId || rx.patientId // Link patient if provided, otherwise keep existing
+        } : rx)
+    );
+  };
+
+  const handleRejectPrescription = (rxId: string) => {
+    setPrescriptions(prev => 
+        prev.map(rx => rx.id === rxId ? { ...rx, status: 'REJECTED' } : rx)
     );
   };
 
@@ -223,8 +233,12 @@ function App() {
             <PharmacyDashboard 
                 prescriptions={prescriptions}
                 onDispense={handleDispensePrescription}
+                onReject={handleRejectPrescription}
                 currentUser={currentUser}
                 onUpdateUser={handleUpdateUser}
+                patients={patients}
+                onAddPatient={handleAddPatient}
+                onUpdatePatient={handleUpdatePatient}
             />
           )}
           {currentUser.role === UserRole.ADMIN && (

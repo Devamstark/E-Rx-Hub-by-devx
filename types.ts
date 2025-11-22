@@ -54,10 +54,26 @@ export interface DbConfig {
 export interface InventoryItem {
   id: string;
   name: string;
+  manufacturer: string;
   batchNumber: string;
+  barcode?: string;
   expiryDate: string;
   stock: number;
-  unitPrice: number;
+  minStockLevel: number;
+  purchasePrice: number; // Cost to pharmacy
+  mrp: number; // Selling price
+  unitPrice?: number; // Deprecated, use mrp
+  isNarcotic: boolean; // Controlled substance flag
+}
+
+export interface DoctorDirectoryEntry {
+  id: string;
+  name: string;
+  hospital: string;
+  phone: string;
+  email: string;
+  address: string;
+  specialty: string;
 }
 
 export interface Patient {
@@ -81,6 +97,8 @@ export interface Patient {
   pastSurgeries?: string;
   currentMedications?: string;
   familyHistory?: string;
+  pastMedications?: string;
+  documents?: UserDocument[];
   
   notes?: string;
   registeredAt: string;
@@ -117,6 +135,7 @@ export interface User {
 
   // Pharmacy specific
   inventory?: InventoryItem[];
+  doctorDirectory?: DoctorDirectoryEntry[];
 
   // Termination details
   terminatedAt?: string | null;
@@ -156,10 +175,13 @@ export interface DoctorProfile {
 
 export interface Medicine {
   name: string;
-  dosage: string; // e.g., 500mg
+  dosage: string; // e.g., 1 Tablet
+  strength?: string; // e.g., 500mg
+  route?: string; // e.g., Oral
   frequency: string; // e.g., 1-0-1
   duration: string; // e.g., 5 days
   instructions: string; // e.g., After food
+  refill?: string; // e.g., 0
 }
 
 // Snapshot of doctor details at the time of prescription
@@ -180,14 +202,26 @@ export interface DoctorDetailsSnapshot {
   specialty?: string;
 }
 
+export interface PatientDetailsSnapshot {
+  name: string;
+  age: number;
+  gender: 'Male' | 'Female' | 'Other';
+  address: string;
+  phone: string;
+  allergies: string[];
+  chronicConditions?: string[];
+}
+
 export interface Prescription {
   id: string;
   doctorId: string;
   doctorName: string; // Kept for backward compatibility/searches
   doctorDetails?: DoctorDetailsSnapshot; // Full snapshot
+  patientId?: string; // Link to Patient Profile
   patientName: string;
   patientAge: number;
   patientGender: 'Male' | 'Female' | 'Other';
+  patientDetails?: PatientDetailsSnapshot; // Full snapshot at time of issue
   diagnosis: string;
   medicines: Medicine[];
   advice: string;

@@ -1,8 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { Medicine, Prescription, User, Patient } from '../../types';
-import { Plus, Trash2, Send, BrainCircuit, FileText, AlertTriangle, Info, Video, User as UserIcon, Search, Check } from 'lucide-react';
+import { Plus, Trash2, Send, BrainCircuit, FileText, AlertTriangle, Info, Video, User as UserIcon, Search, Check, Link2, UserPlus, ChevronDown, ChevronUp } from 'lucide-react';
 import { analyzePrescriptionSafety } from '../../services/geminiService';
 import { COMMON_MEDICINES } from '../../constants';
 
@@ -11,9 +11,10 @@ interface CreatePrescriptionProps {
   onPrescriptionSent: (rx: Prescription) => void;
   verifiedPharmacies: User[];
   patients: Patient[];
+  onAddPatient: (p: Patient) => void;
 }
 
-type PrescriptionFormData = Omit<Prescription, 'id' | 'date' | 'status' | 'digitalSignatureToken' | 'doctorId' | 'doctorName' | 'pharmacyName' | 'doctorDetails'>;
+type PrescriptionFormData = Omit<Prescription, 'id' | 'date' | 'status' | 'digitalSignatureToken' | 'doctorId' | 'doctorName' | 'pharmacyName' | 'doctorDetails' | 'patientId' | 'patientDetails'>;
 
 const getFrequencyDescription = (freq: string): string => {
     if (!freq) return '';
@@ -29,10 +30,10 @@ const getFrequencyDescription = (freq: string): string => {
     return freq;
 };
 
-export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({ currentUser, onPrescriptionSent, verifiedPharmacies, patients }) => {
+export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({ currentUser, onPrescriptionSent, verifiedPharmacies, patients, onAddPatient }) => {
   const { register, control, handleSubmit, watch, setValue, formState: { errors } } = useForm<PrescriptionFormData>({
     defaultValues: {
-      medicines: [{ name: '', dosage: '', frequency: '', duration: '', instructions: '' }],
+      medicines: [{ name: '', dosage: '', frequency: '', duration: '', instructions: '', route: 'Oral', refill: '0' }],
       patientGender: 'Male'
     }
   });
@@ -47,23 +48,40 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({ currentU
   const [selectedPharmacyId, setSelectedPharmacyId] = useState('');
   const [isPatientVerified, setIsPatientVerified] = useState(false);
   
-  // Patient Search State
+  // Patient Management State
+  const [patientMode, setPatientMode] = useState<'SEARCH' | 'CREATE'>('SEARCH');
   const [patientSearch, setPatientSearch] = useState('');
   const [showPatientResults, setShowPatientResults] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
 
+  // New Patient State
+  const [newPatient, setNewPatient] = useState<Partial<Patient>>({
+      fullName: '', phone: '', dateOfBirth: '', gender: 'Male', address: '', allergies: [], chronicConditions: []
+  });
+  const [newAllergy, setNewAllergy] = useState('');
+  const [newCondition, setNewCondition] = useState('');
+
   const diagnosis = watch('diagnosis');
   const medicines = watch('medicines');
   
-  // Filter patients for current doctor and search term
   const myPatients = patients.filter(p => p.doctorId === currentUser.id);
   const patientResults = myPatients.filter(p => p.fullName.toLowerCase().includes(patientSearch.toLowerCase()) || p.phone.includes(patientSearch));
+
+  // Auto-calculate age when New Patient DOB changes
+  useEffect(() => {
+      if (patientMode === 'CREATE' && newPatient.dateOfBirth) {
+          const birthDate = new Date(newPatient.dateOfBirth);
+          const age = new Date().getFullYear() - birthDate.getFullYear();
+          setValue('patientAge', age > 0 ? age : 0);
+          setValue('patientName', newPatient.fullName || '');
+          setValue('patientGender', newPatient.gender as any);
+      }
+  }, [newPatient.dateOfBirth, newPatient.fullName, newPatient.gender, patientMode, setValue]);
 
   const handleSelectPatient = (patient: Patient) => {
       setValue('patientName', patient.fullName);
       setValue('patientGender', patient.gender);
       
-      // Calculate Age
       const birthDate = new Date(patient.dateOfBirth);
       const age = new Date().getFullYear() - birthDate.getFullYear();
       setValue('patientAge', age);
@@ -91,11 +109,62 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({ currentU
         return;
     }
 
+    let finalPatientId = selectedPatient?.id;
+    let finalPatientName = data.patientName;
+    let finalPatientAddress = '';
+    let finalPatientPhone = '';
+    let finalPatientAllergies: string[] = [];
+    let finalPatientConditions: string[] = [];
+
+    // 1. Handle New Patient Creation if in CREATE mode
+    if (patientMode === 'CREATE') {
+        if (!newPatient.fullName || !newPatient.phone || !newPatient.dateOfBirth) {
+            alert("Please complete the New Patient details (Name, Phone, DOB).");
+            return;
+        }
+        
+        const createdPatient: Patient = {
+            id: `PAT-${Date.now()}`,
+            doctorId: currentUser.id,
+            fullName: newPatient.fullName,
+            phone: newPatient.phone,
+            dateOfBirth: newPatient.dateOfBirth,
+            gender: newPatient.gender as 'Male' | 'Female' | 'Other',
+            address: newPatient.address || '',
+            bloodGroup: '',
+            height: '',
+            weight: '',
+            allergies: newPatient.allergies || [],
+            chronicConditions: newPatient.chronicConditions || [],
+            registeredAt: new Date().toISOString()
+        };
+
+        // Save new patient to global state
+        onAddPatient(createdPatient);
+        finalPatientId = createdPatient.id;
+        finalPatientName = createdPatient.fullName;
+        finalPatientAddress = createdPatient.address;
+        finalPatientPhone = createdPatient.phone;
+        finalPatientAllergies = createdPatient.allergies;
+        finalPatientConditions = createdPatient.chronicConditions;
+    } else if (selectedPatient) {
+        finalPatientAddress = selectedPatient.address;
+        finalPatientPhone = selectedPatient.phone;
+        finalPatientAllergies = selectedPatient.allergies;
+        finalPatientConditions = selectedPatient.chronicConditions;
+    } else {
+        alert("Please select an existing patient or create a new one.");
+        return;
+    }
+
+    // 2. Create Prescription Linked to Patient ID
     const pharmacy = verifiedPharmacies.find(p => p.id === selectedPharmacyId);
     const newRx: Prescription = {
         ...data,
         id: '', // Handled by App.tsx
         doctorId: currentUser.id,
+        patientId: finalPatientId, // CRITICAL: Linking Rx to Patient
+        patientName: finalPatientName, // Redundant but good for display
         doctorName: currentUser.name,
         doctorDetails: {
             name: currentUser.name,
@@ -113,6 +182,15 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({ currentU
             fax: currentUser.fax,
             email: currentUser.email
         },
+        patientDetails: {
+            name: finalPatientName,
+            age: data.patientAge,
+            gender: data.patientGender,
+            address: finalPatientAddress,
+            phone: finalPatientPhone,
+            allergies: finalPatientAllergies,
+            chronicConditions: finalPatientConditions
+        },
         pharmacyId: selectedPharmacyId,
         pharmacyName: pharmacy ? pharmacy.name : 'Unassigned',
         date: new Date().toISOString(),
@@ -121,7 +199,7 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({ currentU
     };
 
     onPrescriptionSent(newRx);
-    alert("Prescription Signed & Encrypted. Sent to Pharmacy.");
+    alert("Prescription Signed & Linked to Patient Profile.");
   };
 
   return (
@@ -135,7 +213,7 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({ currentU
 
       <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
         {/* Letterhead Preview */}
-        <div className="bg-slate-50 p-4 rounded-md border border-slate-200 flex items-start gap-3">
+        <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 flex items-start gap-3">
             <div className="p-2 bg-white rounded-full border border-slate-200">
                 <UserIcon className="w-5 h-5 text-slate-500" />
             </div>
@@ -149,83 +227,169 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({ currentU
             </div>
         </div>
 
-        {/* Patient Selection & Info */}
-        <div className="relative">
-             <div className="flex justify-between items-end mb-2">
-                <label className="block text-sm font-medium text-slate-700">Patient Details</label>
-                {!selectedPatient && (
-                    <div className="relative">
-                        <button 
-                            type="button" 
-                            onClick={() => setShowPatientResults(!showPatientResults)}
-                            className="text-sm text-indigo-600 font-medium flex items-center hover:text-indigo-800"
-                        >
-                            <Search className="w-4 h-4 mr-1"/> Select Existing Patient
-                        </button>
-                        {showPatientResults && (
-                            <div className="absolute right-0 top-8 w-72 bg-white shadow-xl border border-slate-200 rounded-lg z-20 p-2">
-                                <input 
-                                    autoFocus
-                                    className="w-full border p-2 rounded text-sm mb-2"
-                                    placeholder="Search Name..."
-                                    value={patientSearch}
-                                    onChange={e => setPatientSearch(e.target.value)}
-                                />
-                                <div className="max-h-48 overflow-y-auto space-y-1">
-                                    {patientResults.length === 0 ? (
-                                        <p className="text-xs text-slate-500 p-2 text-center">No patients found</p>
-                                    ) : (
+        {/* PATIENT SELECTION SECTION */}
+        <div className="bg-white p-5 border border-slate-200 rounded-lg shadow-sm">
+             <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                <label className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center">
+                    1. Select Patient
+                    {selectedPatient && patientMode === 'SEARCH' && (
+                        <span className="ml-3 bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full border border-green-200 flex items-center font-bold">
+                            <Link2 className="w-3 h-3 mr-1"/> Linked to ID: {selectedPatient.id}
+                        </span>
+                    )}
+                </label>
+                <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+                    <button 
+                        type="button"
+                        onClick={() => { setPatientMode('SEARCH'); setSelectedPatient(null); }}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center ${patientMode === 'SEARCH' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                        <Search className="w-3 h-3 mr-1"/> Use Existing
+                    </button>
+                    <button 
+                        type="button"
+                        onClick={() => { setPatientMode('CREATE'); setSelectedPatient(null); setValue('patientName', ''); }}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center ${patientMode === 'CREATE' ? 'bg-white text-teal-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                        <UserPlus className="w-3 h-3 mr-1"/> Create New
+                    </button>
+                </div>
+             </div>
+
+             {patientMode === 'SEARCH' ? (
+                 <div className="relative mb-4">
+                    {!selectedPatient ? (
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Search className="h-4 w-4 text-slate-400"/>
+                            </div>
+                            <input 
+                                type="text"
+                                className="block w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                                placeholder="Search your patient list..."
+                                value={patientSearch}
+                                onChange={e => { setPatientSearch(e.target.value); setShowPatientResults(true); }}
+                                onFocus={() => setShowPatientResults(true)}
+                            />
+                            {showPatientResults && patientSearch && (
+                                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg z-20 max-h-60 overflow-y-auto">
+                                    {patientResults.length > 0 ? (
                                         patientResults.map(p => (
                                             <button
                                                 key={p.id}
                                                 type="button"
                                                 onClick={() => handleSelectPatient(p)}
-                                                className="w-full text-left p-2 hover:bg-indigo-50 rounded text-sm flex justify-between items-center"
+                                                className="w-full text-left px-4 py-3 hover:bg-indigo-50 text-sm border-b border-slate-50 last:border-0 flex justify-between items-center group"
                                             >
-                                                <span>{p.fullName}</span>
-                                                <span className="text-xs text-slate-400">{p.phone}</span>
+                                                <div>
+                                                    <span className="font-bold text-slate-800 group-hover:text-indigo-700 block">{p.fullName}</span>
+                                                    <span className="text-xs text-slate-500">{p.gender}, {new Date().getFullYear() - new Date(p.dateOfBirth).getFullYear()} Yrs</span>
+                                                </div>
+                                                <span className="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded group-hover:bg-white">{p.phone}</span>
                                             </button>
                                         ))
+                                    ) : (
+                                        <div className="px-4 py-3 text-sm text-slate-500 italic">No patients found. Switch to "Create New".</div>
                                     )}
                                 </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-between p-3 bg-indigo-50 border border-indigo-100 rounded-md">
+                            <div className="flex items-center">
+                                <div className="h-8 w-8 rounded-full bg-indigo-200 flex items-center justify-center text-indigo-700 font-bold mr-3">
+                                    {selectedPatient.fullName.charAt(0)}
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-slate-900">{selectedPatient.fullName}</p>
+                                    <p className="text-xs text-slate-500">{selectedPatient.gender}, {selectedPatient.phone}</p>
+                                </div>
                             </div>
-                        )}
-                    </div>
-                )}
-                {selectedPatient && (
-                     <button type="button" onClick={() => { setSelectedPatient(null); setValue('patientName', ''); setValue('patientAge', 0); }} className="text-xs text-red-500 hover:underline">Clear Selection</button>
-                )}
-             </div>
-
-             {/* Patient Safety Alert */}
-             {selectedPatient && (selectedPatient.allergies.length > 0 || selectedPatient.chronicConditions.length > 0) && (
-                 <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-3 flex items-start">
-                     <AlertTriangle className="w-5 h-5 text-red-600 mr-3 shrink-0 mt-0.5"/>
-                     <div>
-                         <h4 className="text-sm font-bold text-red-800">Medical Alert</h4>
-                         {selectedPatient.allergies.length > 0 && (
-                             <p className="text-xs text-red-700 mt-1"><span className="font-bold">Allergies:</span> {selectedPatient.allergies.join(', ')}</p>
-                         )}
-                         {selectedPatient.chronicConditions.length > 0 && (
-                             <p className="text-xs text-red-700 mt-1"><span className="font-bold">Conditions:</span> {selectedPatient.chronicConditions.join(', ')}</p>
-                         )}
+                            <button type="button" onClick={() => { setSelectedPatient(null); setValue('patientName', ''); }} className="text-xs text-red-600 hover:underline font-medium">Change</button>
+                        </div>
+                    )}
+                 </div>
+             ) : (
+                 /* CREATE NEW PATIENT FORM */
+                 <div className="bg-slate-50 p-4 rounded-md border border-slate-200 mb-4 animate-in fade-in">
+                     <h4 className="text-xs font-bold text-teal-700 uppercase mb-3">New Patient Profile</h4>
+                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                         <input 
+                            className="border p-2 rounded text-sm" 
+                            placeholder="Full Name *" 
+                            value={newPatient.fullName} 
+                            onChange={e => setNewPatient({...newPatient, fullName: e.target.value})}
+                         />
+                         <input 
+                            className="border p-2 rounded text-sm" 
+                            placeholder="Phone Number *" 
+                            value={newPatient.phone} 
+                            onChange={e => setNewPatient({...newPatient, phone: e.target.value})}
+                         />
+                         <input 
+                            type="date"
+                            className="border p-2 rounded text-sm" 
+                            value={newPatient.dateOfBirth} 
+                            onChange={e => setNewPatient({...newPatient, dateOfBirth: e.target.value})}
+                         />
+                         <select 
+                            className="border p-2 rounded text-sm bg-white"
+                            value={newPatient.gender}
+                            onChange={e => setNewPatient({...newPatient, gender: e.target.value as any})}
+                         >
+                             <option value="Male">Male</option>
+                             <option value="Female">Female</option>
+                             <option value="Other">Other</option>
+                         </select>
+                         <input 
+                            className="border p-2 rounded text-sm sm:col-span-2" 
+                            placeholder="Address (Optional)" 
+                            value={newPatient.address} 
+                            onChange={e => setNewPatient({...newPatient, address: e.target.value})}
+                         />
+                     </div>
+                     
+                     {/* Quick Medical History for New Patient */}
+                     <div className="border-t border-slate-200 pt-3">
+                         <p className="text-xs font-bold text-slate-500 mb-2">Quick Medical History (Optional)</p>
+                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                             <div>
+                                 <div className="flex gap-2 mb-2">
+                                     <input className="border p-1.5 rounded text-xs flex-1" placeholder="Add Allergy" value={newAllergy} onChange={e => setNewAllergy(e.target.value)}/>
+                                     <button type="button" onClick={() => { if(newAllergy) { setNewPatient(p => ({...p, allergies: [...(p.allergies||[]), newAllergy]})); setNewAllergy(''); }}} className="bg-slate-200 px-2 rounded text-xs font-bold">+</button>
+                                 </div>
+                                 <div className="flex flex-wrap gap-1">
+                                     {newPatient.allergies?.map(a => <span key={a} className="bg-red-100 text-red-800 text-[10px] px-1.5 py-0.5 rounded">{a}</span>)}
+                                 </div>
+                             </div>
+                             <div>
+                                 <div className="flex gap-2 mb-2">
+                                     <input className="border p-1.5 rounded text-xs flex-1" placeholder="Add Condition" value={newCondition} onChange={e => setNewCondition(e.target.value)}/>
+                                     <button type="button" onClick={() => { if(newCondition) { setNewPatient(p => ({...p, chronicConditions: [...(p.chronicConditions||[]), newCondition]})); setNewCondition(''); }}} className="bg-slate-200 px-2 rounded text-xs font-bold">+</button>
+                                 </div>
+                                 <div className="flex flex-wrap gap-1">
+                                     {newPatient.chronicConditions?.map(c => <span key={c} className="bg-blue-100 text-blue-800 text-[10px] px-1.5 py-0.5 rounded">{c}</span>)}
+                                 </div>
+                             </div>
+                         </div>
                      </div>
                  </div>
              )}
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+             {/* Auto-filled Readonly Fields for Rx */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-3 rounded border border-slate-100">
                 <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1">Full Name</label>
-                    <input {...register('patientName', { required: true })} className="block w-full border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border p-2 text-sm" />
+                    <label className="block text-xs font-bold text-slate-400 mb-1 uppercase">Rx Patient Name</label>
+                    <input {...register('patientName', { required: true })} className="block w-full border-slate-200 rounded-md p-2 text-sm bg-white text-slate-700 font-medium" readOnly />
                     {errors.patientName && <span className="text-xs text-red-500">Required</span>}
                 </div>
                 <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1">Age</label>
-                    <input type="number" {...register('patientAge', { required: true, min: 0 })} className="block w-full border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border p-2 text-sm" />
+                    <label className="block text-xs font-bold text-slate-400 mb-1 uppercase">Calculated Age</label>
+                    <input type="number" {...register('patientAge', { required: true, min: 0 })} className="block w-full border-slate-200 rounded-md p-2 text-sm bg-white text-slate-700" readOnly />
                 </div>
                 <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1">Gender</label>
-                    <select {...register('patientGender')} className="block w-full border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border p-2 text-sm">
+                    <label className="block text-xs font-bold text-slate-400 mb-1 uppercase">Gender</label>
+                    <select {...register('patientGender')} className="block w-full border-slate-200 rounded-md p-2 text-sm bg-white text-slate-700 disabled:opacity-100" disabled={true}>
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
                         <option value="Other">Other</option>
@@ -236,15 +400,15 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({ currentU
 
         {/* Diagnosis & AI */}
         <div>
-          <label className="block text-sm font-medium text-slate-700">Diagnosis / Symptoms</label>
-          <textarea {...register('diagnosis', { required: true })} className="mt-1 block w-full border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border p-2" rows={2} placeholder="e.g. Acute Bronchitis, dry cough"></textarea>
+          <label className="block text-sm font-bold text-slate-700 uppercase tracking-wide mb-2">2. Diagnosis / Symptoms</label>
+          <textarea {...register('diagnosis', { required: true })} className="mt-1 block w-full border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border p-3 text-sm" rows={2} placeholder="e.g. Acute Bronchitis, dry cough"></textarea>
         </div>
 
         {/* Medicines */}
         <div>
-            <div className="flex justify-between items-center mb-2">
-                <label className="block text-sm font-medium text-slate-700">Medication (Rx)</label>
-                <button type="button" onClick={() => append({ name: '', dosage: '', frequency: '', duration: '', instructions: '' })} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center">
+            <div className="flex justify-between items-center mb-3">
+                <label className="block text-sm font-bold text-slate-700 uppercase tracking-wide">3. Medication (Rx)</label>
+                <button type="button" onClick={() => append({ name: '', dosage: '1 Tab', frequency: '1-0-1', duration: '5 Days', instructions: 'After Food', route: 'Oral', refill: '0' })} className="text-sm text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-md font-medium flex items-center shadow-sm">
                     <Plus className="w-4 h-4 mr-1"/> Add Drug
                 </button>
             </div>
@@ -263,51 +427,63 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({ currentU
                     const fullDirection = `${currentDosage ? currentDosage + ', ' : ''}${freqDesc || currentFreq || '...'}${currentDur ? ' for ' + currentDur : ''}`;
 
                     return (
-                        <div key={field.id} className="bg-slate-50 p-4 rounded-md border border-slate-200">
-                            <div className="grid grid-cols-12 gap-2 items-start">
+                        <div key={field.id} className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
+                            <div className="grid grid-cols-12 gap-3 items-end">
                                 <div className="col-span-12 sm:col-span-4">
-                                    <label className="text-xs font-bold text-slate-500 mb-1 block sm:hidden">Medicine</label>
+                                    <label className="text-[10px] font-bold text-slate-500 mb-1 block uppercase">Medicine Name</label>
                                     <input 
                                       {...register(`medicines.${index}.name` as const, { required: true })} 
                                       list="common-medicines"
-                                      placeholder="Medicine Name" 
-                                      className="w-full text-sm border-slate-300 rounded border p-2" 
+                                      placeholder="Type or select..." 
+                                      className="w-full text-sm border-slate-300 rounded border p-2 font-medium" 
                                     />
                                 </div>
-                                <div className="col-span-4 sm:col-span-2">
-                                     <label className="text-xs font-bold text-slate-500 mb-1 block sm:hidden">Dose</label>
-                                     <input {...register(`medicines.${index}.dosage` as const)} placeholder="Dose (500mg)" className="w-full text-sm border-slate-300 rounded border p-2" />
+                                <div className="col-span-6 sm:col-span-2">
+                                     <label className="text-[10px] font-bold text-slate-500 mb-1 block uppercase">Dose</label>
+                                     <input {...register(`medicines.${index}.dosage` as const)} placeholder="500mg" className="w-full text-sm border-slate-300 rounded border p-2" />
                                 </div>
-                                <div className="col-span-4 sm:col-span-2">
-                                     <label className="text-xs font-bold text-slate-500 mb-1 block sm:hidden">Freq</label>
+                                <div className="col-span-6 sm:col-span-2">
+                                     <label className="text-[10px] font-bold text-slate-500 mb-1 block uppercase">Route</label>
+                                     <select {...register(`medicines.${index}.route` as const)} className="w-full text-sm border-slate-300 rounded border p-2 bg-white">
+                                         <option value="Oral">Oral</option>
+                                         <option value="Topical">Topical</option>
+                                         <option value="Injection">Injection</option>
+                                         <option value="Inhalation">Inhalation</option>
+                                         <option value="Drops">Drops</option>
+                                     </select>
+                                </div>
+                                <div className="col-span-6 sm:col-span-2">
+                                     <label className="text-[10px] font-bold text-slate-500 mb-1 block uppercase">Freq (1-0-1)</label>
                                      <input 
                                         {...register(`medicines.${index}.frequency` as const)} 
-                                        placeholder="Freq (1-0-1)" 
+                                        placeholder="BD / OD" 
                                         className="w-full text-sm border-slate-300 rounded border p-2" 
                                         title="Use codes like 1-0-1, BD, OD"
                                      />
                                 </div>
-                                <div className="col-span-4 sm:col-span-2">
-                                     <label className="text-xs font-bold text-slate-500 mb-1 block sm:hidden">Duration</label>
-                                     <input {...register(`medicines.${index}.duration` as const)} placeholder="Dur (5 days)" className="w-full text-sm border-slate-300 rounded border p-2" />
-                                </div>
-                                <div className="col-span-12 sm:col-span-1 flex justify-end sm:mt-1">
-                                    <button type="button" onClick={() => remove(index)} className="text-red-500 hover:text-red-700 p-2 bg-white rounded border border-slate-200"><Trash2 className="w-4 h-4"/></button>
+                                <div className="col-span-6 sm:col-span-2">
+                                     <label className="text-[10px] font-bold text-slate-500 mb-1 block uppercase">Duration</label>
+                                     <input {...register(`medicines.${index}.duration` as const)} placeholder="5 Days" className="w-full text-sm border-slate-300 rounded border p-2" />
                                 </div>
                             </div>
-                            
-                            <div className="grid grid-cols-12 gap-4 mt-2">
-                                <div className="col-span-12 sm:col-span-6">
+                            <div className="grid grid-cols-12 gap-3 mt-3 items-end">
+                                <div className="col-span-8">
+                                    <label className="text-[10px] font-bold text-slate-500 mb-1 block uppercase">Instructions</label>
                                     <input {...register(`medicines.${index}.instructions` as const)} placeholder="Special Instructions (e.g. After food)" className="w-full text-xs border-slate-300 rounded border p-2 text-slate-600 bg-white" />
                                 </div>
-                                <div className="col-span-12 sm:col-span-6 flex items-center">
-                                    <div className="bg-indigo-50 border border-indigo-100 rounded px-3 py-1.5 w-full flex items-start">
-                                        <Info className="w-4 h-4 text-indigo-500 mr-2 mt-0.5 shrink-0"/>
-                                        <p className="text-xs text-indigo-800">
-                                            <span className="font-bold">Full Direction:</span> {fullDirection}
-                                        </p>
-                                    </div>
+                                <div className="col-span-2">
+                                    <label className="text-[10px] font-bold text-slate-500 mb-1 block uppercase">Refills</label>
+                                    <input {...register(`medicines.${index}.refill` as const)} type="number" className="w-full text-xs border-slate-300 rounded border p-2 text-slate-600 bg-white" placeholder="0" />
                                 </div>
+                                <div className="col-span-2">
+                                    <button type="button" onClick={() => remove(index)} className="w-full text-red-500 hover:text-red-700 p-2 bg-white rounded border border-slate-200 hover:bg-red-50 transition-colors"><Trash2 className="w-4 h-4 mx-auto"/></button>
+                                </div>
+                            </div>
+                            <div className="mt-2 bg-indigo-50 border border-indigo-100 rounded px-3 py-1.5 w-full flex items-start">
+                                <Info className="w-4 h-4 text-indigo-500 mr-2 mt-0.5 shrink-0"/>
+                                <p className="text-xs text-indigo-800 truncate">
+                                    <span className="font-bold">Preview:</span> {fullDirection}
+                                </p>
                             </div>
                         </div>
                     );
@@ -325,7 +501,7 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({ currentU
                 type="button" 
                 onClick={handleAnalyze}
                 disabled={analyzing || !diagnosis}
-                className="text-sm bg-white border border-indigo-200 text-indigo-700 px-3 py-1.5 rounded shadow-sm hover:bg-indigo-50 disabled:opacity-50"
+                className="text-sm bg-white border border-indigo-200 text-indigo-700 px-3 py-1.5 rounded shadow-sm hover:bg-indigo-50 disabled:opacity-50 font-bold"
             >
                 {analyzing ? 'Analyzing...' : 'Check Interactions'}
             </button>
@@ -353,8 +529,8 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({ currentU
         )}
 
         <div>
-            <label className="block text-sm font-medium text-slate-700">Additional Advice</label>
-            <textarea {...register('advice')} className="mt-1 block w-full border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border p-2" rows={2}></textarea>
+            <label className="block text-sm font-bold text-slate-700 uppercase tracking-wide">4. Notes / Remarks</label>
+            <textarea {...register('advice')} className="mt-1 block w-full border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border p-3 text-sm" rows={2} placeholder="Additional notes, diet plan, or follow-up details..."></textarea>
         </div>
 
         {/* Compliance & Verification */}
@@ -380,7 +556,7 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({ currentU
 
         {/* Pharmacy Selection */}
         <div>
-            <label className="block text-sm font-medium text-slate-700">Select Pharmacy (Verified)</label>
+            <label className="block text-sm font-bold text-slate-700 uppercase tracking-wide">5. Select Pharmacy (Verified)</label>
             {verifiedPharmacies.length === 0 ? (
                 <div className="p-3 bg-amber-50 text-amber-700 border border-amber-200 rounded text-sm mt-1">
                     No verified pharmacies found. Please contact Admin to onboard pharmacies.
@@ -389,7 +565,7 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({ currentU
                 <select 
                     value={selectedPharmacyId} 
                     onChange={(e) => setSelectedPharmacyId(e.target.value)}
-                    className="mt-1 block w-full border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border p-2"
+                    className="mt-1 block w-full border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border p-3 text-sm font-medium"
                     required
                 >
                     <option value="">-- Choose Pharmacy --</option>

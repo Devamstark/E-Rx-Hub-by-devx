@@ -6,10 +6,32 @@ interface PrintLayoutProps {
   rx: Prescription;
 }
 
+const getFrequencyInWords = (freq: string): string => {
+    if (!freq) return '';
+    const f = freq.toUpperCase().trim();
+    if (f === '1-0-0' || f === 'OD') return 'Once daily (Morning)';
+    if (f === '0-1-0') return 'Once daily (Afternoon)';
+    if (f === '0-0-1' || f === 'HS') return 'Once daily (Night)';
+    if (f === '1-0-1' || f === 'BD' || f === 'BID') return 'Twice daily (Morning & Night)';
+    if (f === '1-1-1' || f === 'TDS' || f === 'TID') return 'Thrice daily';
+    if (f === '1-1-1-1' || f === 'QID') return 'Four times daily';
+    if (f === 'SOS') return 'As needed';
+    if (f === 'STAT') return 'Immediately';
+    if (/^\d-\d-\d$/.test(f)) {
+        const [m, a, n] = f.split('-').map(Number);
+        const parts = [];
+        if (m) parts.push('Morning');
+        if (a) parts.push('Afternoon');
+        if (n) parts.push('Night');
+        return parts.length > 0 ? parts.join(', ') : f;
+    }
+    return freq;
+};
+
 export const PrintLayout: React.FC<PrintLayoutProps> = ({ rx }) => {
   const doc = rx.doctorDetails || {
       name: rx.doctorName,
-      qualifications: 'RMP',
+      qualifications: 'Registered Medical Practitioner',
       registrationNumber: 'N/A',
       clinicName: 'DevXWorld Network',
       clinicAddress: '',
@@ -20,137 +42,161 @@ export const PrintLayout: React.FC<PrintLayoutProps> = ({ rx }) => {
       pincode: '',
       nmrUid: '',
       stateCouncil: '',
-      specialty: ''
+      specialty: '',
+      email: ''
+  };
+
+  const pat = rx.patientDetails || {
+      name: rx.patientName,
+      age: rx.patientAge,
+      gender: rx.patientGender,
+      address: '',
+      phone: '',
+      allergies: [],
+      chronicConditions: []
   };
 
   return (
-    <div className="p-8 bg-white text-black font-sans mx-auto print:p-0" style={{ width: '210mm', minHeight: '297mm' }}>
-      {/* Main Header: E-RX & Rx ID */}
-      <div className="border-b-4 border-indigo-900 pb-4 mb-6 flex justify-between items-start">
-        <div className="w-1/2">
-            {/* Requested Change: Big E-RX and Rx Number */}
-            <h1 className="text-6xl font-black uppercase text-indigo-900 tracking-tighter leading-none mb-2">E-RX</h1>
-            <p className="text-xl font-mono font-bold text-slate-600 mb-4 tracking-widest pl-1">#{rx.id}</p>
-
-            {/* Clinic Details (Moved below as sub-info) */}
-            <div className="mt-2 border-l-4 border-indigo-100 pl-3">
-                <h2 className="text-lg font-bold text-slate-800 uppercase leading-tight">{doc.clinicName}</h2>
-                <div className="text-sm text-slate-600 space-y-0.5 mt-1">
-                    <p className="font-medium">{doc.clinicAddress}</p>
-                    <p>{doc.city}{doc.city && doc.state ? ', ' : ''}{doc.state} {doc.pincode ? '- ' + doc.pincode : ''}</p>
-                    <div className="flex gap-4 mt-1 text-xs">
-                        {doc.phone && <p><span className="font-bold">Tel:</span> {doc.phone}</p>}
-                        {doc.fax && <p><span className="font-bold">Fax:</span> {doc.fax}</p>}
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div className="w-1/2 text-right pt-2">
-            <h2 className="text-2xl font-bold text-slate-900">Dr. {doc.name}</h2>
-            <p className="text-sm font-bold text-indigo-700 uppercase">{doc.qualifications}</p>
-            {doc.specialty && <p className="text-xs font-bold text-slate-500 uppercase">{doc.specialty}</p>}
-            
-            <div className="mt-3 space-y-0.5 border-t border-slate-200 pt-2 inline-block text-right">
-                <p className="text-xs text-slate-600">Reg No: <span className="font-semibold text-slate-900">{doc.registrationNumber}</span></p>
-                <p className="text-xs text-slate-600">NMR UID: <span className="font-semibold text-slate-900">{doc.nmrUid || 'N/A'}</span></p>
-                <p className="text-[10px] text-slate-400">{doc.stateCouncil}</p>
-            </div>
-        </div>
+    <div className="p-10 bg-white text-black font-sans mx-auto print:p-0 flex flex-col" style={{ width: '210mm', minHeight: '297mm', boxSizing: 'border-box' }}>
+      
+      {/* 1. HEADER: TITLE & CLINIC */}
+      <div className="text-center border-b-2 border-slate-900 pb-4 mb-6">
+          <h1 className="text-5xl font-serif font-bold text-slate-900 mb-2 tracking-wider">E-Rx</h1>
+          <h2 className="text-2xl font-bold uppercase tracking-wide text-slate-800">{doc.clinicName}</h2>
       </div>
 
-      {/* Patient Meta Data */}
-      <div className="flex justify-between items-end mb-6 border-b border-slate-300 pb-2 bg-slate-50 p-3 rounded-sm print:bg-transparent print:p-0">
-         <div className="flex-1">
-             <div className="flex space-x-8 text-sm">
-                 <div>
-                     <span className="text-[10px] text-slate-500 block uppercase tracking-wider">Patient Name</span>
-                     <span className="font-bold text-slate-900 text-base">{rx.patientName}</span>
-                 </div>
-                 <div>
-                     <span className="text-[10px] text-slate-500 block uppercase tracking-wider">Age / Sex</span>
-                     <span className="font-bold text-slate-900 text-base">{rx.patientAge}Y / {rx.patientGender}</span>
-                 </div>
-             </div>
-         </div>
-         <div className="text-right">
-             <span className="text-[10px] text-slate-500 block uppercase tracking-wider">Date of Issue</span>
-             <span className="font-bold text-slate-900">{new Date(rx.date).toLocaleString()}</span>
-         </div>
+      {/* 2. DOCTOR INFO */}
+      <div className="mb-6 pb-4 border-b border-slate-300">
+          <h3 className="text-xs font-bold text-slate-500 uppercase mb-2 tracking-wider">Prescribing Doctor</h3>
+          <div className="flex justify-between items-start">
+              <div>
+                  <p className="text-lg font-bold text-slate-900">Dr. {doc.name}</p>
+                  <p className="text-sm font-medium text-slate-700">{doc.qualifications}</p>
+                  {doc.specialty && <p className="text-sm font-medium text-slate-700">{doc.specialty}</p>}
+              </div>
+              <div className="text-right text-sm text-slate-600 max-w-[50%]">
+                  <p>{doc.clinicAddress}</p>
+                  <p>{doc.city}, {doc.state} - {doc.pincode}</p>
+                  <p>Contact: {doc.phone}</p>
+              </div>
+          </div>
       </div>
 
-      {/* Diagnosis */}
-      <div className="mb-6 px-1">
-          <p className="text-xs font-bold text-slate-500 uppercase mb-1">Diagnosis / Clinical Notes</p>
-          <p className="font-medium text-slate-900 text-sm">{rx.diagnosis}</p>
+      {/* 3. PATIENT INFO */}
+      <div className="mb-6 pb-4 border-b border-slate-300">
+          <h3 className="text-xs font-bold text-slate-500 uppercase mb-2 tracking-wider">Patient Details</h3>
+          <div className="grid grid-cols-2 gap-y-2 text-sm">
+              <div className="flex"><span className="font-bold w-24">Name:</span> {pat.name}</div>
+              <div className="flex"><span className="font-bold w-24">Age / Sex:</span> {pat.age} Y / {pat.gender}</div>
+              <div className="flex"><span className="font-bold w-24">Contact:</span> {pat.phone || 'N/A'}</div>
+              <div className="flex"><span className="font-bold w-24">Address:</span> {pat.address || 'N/A'}</div>
+              <div className="col-span-2 flex mt-1">
+                  <span className="font-bold w-24">Allergies:</span> 
+                  <span className={`${pat.allergies && pat.allergies.length > 0 ? 'text-red-600 font-bold' : 'text-slate-600'}`}>
+                      {pat.allergies && pat.allergies.length > 0 ? pat.allergies.join(', ') : 'None'}
+                  </span>
+              </div>
+              {pat.chronicConditions && pat.chronicConditions.length > 0 && (
+                  <div className="col-span-2 flex">
+                      <span className="font-bold w-24">Medical Hx:</span> {pat.chronicConditions.join(', ')}
+                  </div>
+              )}
+          </div>
+      </div>
+
+      {/* 4. RX DETAILS (Diagnosis + ID) */}
+      <div className="mb-4 flex justify-between items-end">
+          <div>
+              {rx.diagnosis && (
+                  <div className="mb-2">
+                      <span className="font-bold text-sm mr-2">Diagnosis:</span>
+                      <span className="text-sm">{rx.diagnosis}</span>
+                  </div>
+              )}
+          </div>
+          <div className="text-right text-sm">
+              <p><span className="font-bold">Date:</span> {new Date(rx.date).toLocaleDateString()}</p>
+              <p><span className="font-bold">Rx ID:</span> {rx.id}</p>
+          </div>
       </div>
 
       {/* Rx Symbol */}
-      <div className="mb-2 text-indigo-900 px-1">
-        <span className="text-4xl font-serif italic font-bold">Rx</span>
+      <div className="text-4xl font-serif font-bold italic text-slate-800 mb-2">Rx</div>
+
+      {/* MEDICINES TABLE */}
+      <div className="mb-6 flex-grow">
+          <table className="w-full text-sm border-collapse">
+              <thead>
+                  <tr className="border-b-2 border-slate-800 text-left">
+                      <th className="py-2 pr-2 w-10 text-center">#</th>
+                      <th className="py-2 pr-2 w-1/3">Medicine & Strength</th>
+                      <th className="py-2 pr-2 w-1/12">Route</th>
+                      <th className="py-2 pr-2 w-1/12">Dose</th>
+                      <th className="py-2 pr-2 w-1/4">Frequency</th>
+                      <th className="py-2 pr-2 w-1/12">Dur.</th>
+                      <th className="py-2 w-1/6">Instructions</th>
+                  </tr>
+              </thead>
+              <tbody className="text-slate-800">
+                  {rx.medicines.map((m, i) => (
+                      <tr key={i} className="border-b border-slate-200 align-top">
+                          <td className="py-3 text-center font-bold text-slate-500">{i + 1}</td>
+                          <td className="py-3 font-bold">
+                              {m.name} {m.strength ? `(${m.strength})` : ''}
+                              <div className="text-xs font-normal text-slate-500 mt-0.5">Refills: {m.refill || 0}</div>
+                          </td>
+                          <td className="py-3">{m.route || 'Oral'}</td>
+                          <td className="py-3">{m.dosage}</td>
+                          <td className="py-3 font-medium">{getFrequencyInWords(m.frequency)}</td>
+                          <td className="py-3">{m.duration}</td>
+                          <td className="py-3 italic text-xs">{m.instructions || '-'}</td>
+                      </tr>
+                  ))}
+              </tbody>
+          </table>
       </div>
 
-      {/* Medicines */}
-      <div className="mb-8">
-        <table className="w-full text-sm text-left border-collapse">
-            <thead className="border-b-2 border-slate-800">
-                <tr>
-                    <th className="py-2 font-bold text-slate-800 w-5/12 uppercase text-xs">Medicine</th>
-                    <th className="py-2 font-bold text-slate-800 w-2/12 uppercase text-xs">Dosage</th>
-                    <th className="py-2 font-bold text-slate-800 w-3/12 uppercase text-xs">Frequency</th>
-                    <th className="py-2 font-bold text-slate-800 w-2/12 uppercase text-xs">Duration</th>
-                </tr>
-            </thead>
-            <tbody>
-                {rx.medicines.map((m, i) => (
-                    <React.Fragment key={i}>
-                        <tr className="border-b border-slate-200">
-                            <td className="py-3 font-bold text-slate-900 align-top">{m.name}</td>
-                            <td className="py-3 align-top text-slate-700">{m.dosage}</td>
-                            <td className="py-3 align-top text-slate-700">{m.frequency}</td>
-                            <td className="py-3 align-top text-slate-700">{m.duration}</td>
-                        </tr>
-                        {m.instructions && (
-                            <tr>
-                                <td colSpan={4} className="pb-3 pt-0 text-xs italic text-slate-500 pl-2 border-b border-slate-100">
-                                    <span className="font-semibold">Instruction:</span> {m.instructions}
-                                </td>
-                            </tr>
-                        )}
-                    </React.Fragment>
-                ))}
-            </tbody>
-        </table>
-      </div>
-
-      {/* Advice */}
-      {rx.advice && (
-          <div className="mb-12 p-4 bg-slate-50 rounded border border-slate-200 print:border-slate-300">
-              <h4 className="font-bold text-slate-700 mb-1 text-xs uppercase">Additional Advice:</h4>
-              <p className="text-slate-800 whitespace-pre-wrap text-sm">{rx.advice}</p>
+      {/* 5. NOTES / REMARKS */}
+      <div className="mb-8 border-t border-slate-300 pt-4">
+          <h3 className="font-bold text-slate-700 uppercase text-sm mb-2">Notes / Remarks:</h3>
+          <div className="text-sm text-slate-800 min-h-[60px]">
+              {rx.advice ? (
+                  <ul className="list-disc list-inside">
+                      {rx.advice.split('\n').map((line, i) => <li key={i} className="mb-1">{line}</li>)}
+                  </ul>
+              ) : 'None'}
           </div>
-      )}
+      </div>
 
-      {/* Footer & Signature */}
-      <div className="mt-auto pt-8 border-t-2 border-slate-800 flex justify-between items-end">
-        <div className="text-[10px] text-slate-500 max-w-xs leading-relaxed">
-            <p className="font-bold text-indigo-900 mb-1">E-Rx Sent by DevXWorld</p>
-            <p>This is a digitally signed electronic prescription valid under the IT Act 2000 and Pharmacy Act 1948.</p>
-            <p>Dispense only against valid identification.</p>
-        </div>
-        <div className="text-center min-w-[150px]">
-             {/* Digital Signature Representation */}
-             <div className="h-16 flex flex-col items-center justify-end pb-2 opacity-90">
-                <span className="text-[8px] font-mono text-slate-300 mb-1">{rx.digitalSignatureToken}</span>
-                <div className="font-script text-xl text-indigo-800 transform -rotate-3">
-                    Signed by Dr. {doc.name.split(' ')[0]}
-                </div>
-             </div>
-             <div className="border-t border-slate-500 pt-1">
-                 <p className="text-sm font-bold uppercase text-slate-900">Dr. {doc.name}</p>
-                 <p className="text-[10px] text-slate-500 uppercase tracking-wider">{doc.qualifications}</p>
-             </div>
-        </div>
+      {/* 6. FOOTER SECTION (Legal) */}
+      <div className="mt-auto border-t-2 border-slate-900 pt-6">
+          <div className="flex justify-between items-end mb-6">
+              <div className="w-1/2">
+                  {/* QR Code Placeholder Box */}
+                  <div className="border border-slate-300 w-24 h-24 flex items-center justify-center bg-slate-50 text-xs text-slate-400 text-center p-2">
+                      Rx ID: {rx.id}<br/>[QR CODE]
+                  </div>
+              </div>
+              <div className="w-1/2 text-right">
+                  <div className="font-script text-xl text-slate-900 mb-2">
+                      Signature of Dr. {doc.name.split(' ')[0]}
+                  </div>
+                  <p className="font-bold text-slate-900 text-base">Dr. {doc.name}</p>
+                  <p className="font-bold text-slate-800 text-sm uppercase">REG. NO: {doc.registrationNumber}</p>
+              </div>
+          </div>
+
+          <div className="text-center space-y-3">
+              <p className="font-bold text-xs text-slate-900 border-b border-slate-300 pb-2 inline-block px-4">
+                  Substitution Allowed / <span className="line-through text-slate-400">Not Allowed</span> (Strike out whichever is not applicable)
+              </p>
+              
+              <div className="text-[10px] text-slate-600 leading-tight max-w-3xl mx-auto">
+                  <p>This prescription is generated via a Telemedicine consultation compliant with Telemedicine Practice Guidelines 2020.</p>
+                  <p>Valid for dispensing in India under Drugs & Cosmetics Act, 1940.</p>
+                  <p className="mt-1 font-mono text-[8px] text-slate-400">Token: {rx.digitalSignatureToken}</p>
+              </div>
+          </div>
       </div>
     </div>
   );

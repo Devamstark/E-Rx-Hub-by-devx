@@ -96,6 +96,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                 onPrescriptionSent={(rx) => { onCreatePrescription(rx); setView('HISTORY'); }}
                 verifiedPharmacies={verifiedPharmacies}
                 patients={patients}
+                onAddPatient={onAddPatient}
             />
         )}
 
@@ -107,6 +108,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                     patients={patients} 
                     onAddPatient={onAddPatient}
                     onUpdatePatient={onUpdatePatient}
+                    prescriptions={myPrescriptions}
                 />
             </div>
         )}
