@@ -143,6 +143,10 @@ export const dbService = {
                 .order('created_at', { ascending: false })
                 .limit(100);
 
+            if (logsError) {
+                console.warn("SQL Logs Fetch Error (Check if 'audit_logs' table exists):", logsError.message);
+            }
+
             if (!logsError && logsData) {
                 sqlLogs = logsData.map((l: any) => ({
                     id: l.id,
@@ -245,11 +249,13 @@ export const dbService = {
                 details: details
             });
             
-            if (error) throw error;
+            if (error) {
+                console.warn("SQL Insert failed (Table missing?):", error.message);
+                throw error;
+            }
 
         } catch (e) {
             // Fallback: If SQL insert fails (e.g., RLS policy), save to blob storage
-            console.warn("SQL Log failed, using fallback blob storage", e);
             try {
                 const { data: current } = await supabase
                     .from('system_logs')

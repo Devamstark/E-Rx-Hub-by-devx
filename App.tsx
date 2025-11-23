@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Layout } from './components/ui/Layout';
 import { Login } from './components/auth/Login';
@@ -8,6 +7,7 @@ import { AdminDashboard } from './components/admin/AdminDashboard';
 import { User, UserRole, VerificationStatus, DoctorProfile, Prescription, Patient, AuditLog } from './types';
 import { dbService } from './services/db';
 import { Loader2, Clock, LogOut } from 'lucide-react';
+import { DocumentationViewer } from './components/ui/DocumentationViewer';
 
 // Session Timeout Constants
 const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 Minutes
@@ -16,6 +16,7 @@ const WARNING_THRESHOLD_MS = 29.5 * 60 * 1000; // 29.5 Minutes (Warning 30s befo
 function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [showDocs, setShowDocs] = useState(false);
   
   // Application State
   const [registeredUsers, setRegisteredUsers] = useState<User[]>([]);
@@ -266,7 +267,7 @@ function App() {
 
   return (
     <>
-        <Layout user={currentUser} onLogout={handleLogout}>
+        <Layout user={currentUser} onLogout={handleLogout} onOpenDocs={() => setShowDocs(true)}>
         {!currentUser ? (
             <Login 
             onLogin={handleLogin} 
@@ -315,6 +316,11 @@ function App() {
             </div>
         )}
         </Layout>
+
+        {/* Documentation Overlay */}
+        {showDocs && (
+            <DocumentationViewer onClose={() => setShowDocs(false)} />
+        )}
 
         {/* Session Warning Modal */}
         {showSessionWarning && (

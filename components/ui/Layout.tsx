@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { LogOut, ShieldCheck, Database, Wifi, WifiOff } from 'lucide-react';
+import { LogOut, ShieldCheck, Database, Wifi, WifiOff, BookOpen } from 'lucide-react';
 import { User } from '../../types';
 import { dbService } from '../../services/db';
 
@@ -8,9 +7,10 @@ interface LayoutProps {
   children: React.ReactNode;
   user: User | null;
   onLogout: () => void;
+  onOpenDocs: () => void;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, onOpenDocs }) => {
   const isCloud = dbService.isCloudEnabled();
 
   return (
@@ -52,17 +52,26 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
 
       {/* Footer */}
       <footer className="bg-slate-900 text-slate-400 py-6 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 text-center text-sm space-y-2">
+        <div className="max-w-7xl mx-auto px-4 text-center text-sm space-y-3">
           <p>&copy; {new Date().getFullYear()} E-rx by DevXWorld. Compliant with India Telemedicine Practice Guidelines 2020 & DPDP Act 2023.</p>
           
-          <div className="flex justify-center items-center gap-2 text-xs opacity-70">
-              <Database className="w-3 h-3" />
-              <span>Data Source:</span>
-              {isCloud ? (
-                  <span className="text-green-400 flex items-center font-bold"><Wifi className="w-3 h-3 mr-1"/> Cloud Database Connected</span>
-              ) : (
-                  <span className="text-amber-400 flex items-center font-bold"><WifiOff className="w-3 h-3 mr-1"/> Local Device Only</span>
-              )}
+          <div className="flex flex-col md:flex-row justify-center items-center gap-4 text-xs opacity-70">
+              <div className="flex items-center gap-2">
+                  <Database className="w-3 h-3" />
+                  <span>Data Source:</span>
+                  {isCloud ? (
+                      <span className="text-green-400 flex items-center font-bold"><Wifi className="w-3 h-3 mr-1"/> Cloud Database Connected</span>
+                  ) : (
+                      <span className="text-amber-400 flex items-center font-bold"><WifiOff className="w-3 h-3 mr-1"/> Local Device Only</span>
+                  )}
+              </div>
+              
+              <button 
+                onClick={onOpenDocs} 
+                className="flex items-center gap-1 hover:text-white transition-colors"
+              >
+                  <BookOpen className="w-3 h-3" /> Documentation & Guides
+              </button>
           </div>
         </div>
       </footer>
