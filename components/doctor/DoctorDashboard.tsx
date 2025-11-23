@@ -97,6 +97,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                 verifiedPharmacies={verifiedPharmacies}
                 patients={patients}
                 onAddPatient={onAddPatient}
+                prescriptionHistory={myPrescriptions}
             />
         )}
 
@@ -141,8 +142,13 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                                         <td className="px-6 py-4 font-medium text-slate-900">{rx.patientName}</td>
                                         <td className="px-6 py-4 text-slate-500">{rx.pharmacyName || 'Unknown'}</td>
                                         <td className="px-6 py-4">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${rx.status === 'DISPENSED' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
-                                                {rx.status}
+                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                                rx.status === 'DISPENSED' ? 'bg-green-100 text-green-800' : 
+                                                rx.status === 'REJECTED_STOCK' ? 'bg-orange-100 text-orange-800' :
+                                                rx.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
+                                                'bg-blue-100 text-blue-800'
+                                            }`}>
+                                                {rx.status === 'REJECTED_STOCK' ? 'OUT OF STOCK' : rx.status}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-right">

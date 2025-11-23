@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { UserRole, User, VerificationStatus, DocumentType, UserDocument } from '../../types';
 import { Shield, ArrowRight, Loader2, AlertCircle, CheckCircle2, Building2, Stethoscope, CheckSquare, Upload } from 'lucide-react';
 import { dbService } from '../../services/db';
-import { INDIAN_STATES, MEDICAL_DEGREES } from '../../constants';
+import { INDIAN_STATES, REG_NUMBER_REGEX, PHONE_REGEX } from '../../constants';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -109,6 +109,21 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onRegister }) => {
         return;
     }
 
+    // VALIDATION: Regex checks
+    if (!PHONE_REGEX.test(regPhone)) {
+        setError("Invalid Phone Number. Must be exactly 10 digits.");
+        setLoading(false);
+        return;
+    }
+
+    if (selectedRole === UserRole.DOCTOR) {
+        if (!REG_NUMBER_REGEX.test(regLicense)) {
+            setError("Invalid Registration Number. Must be 5-15 alphanumeric characters.");
+            setLoading(false);
+            return;
+        }
+    }
+
     // Document Check (Required for both now)
     if (!uploadedDoc) {
         const msg = selectedRole === UserRole.DOCTOR 
@@ -194,7 +209,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onRegister }) => {
     }
   };
 
-  const handleOtpSubmit = (e: React.FormEvent) => {
+  const handleOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
@@ -216,6 +231,11 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onRegister }) => {
 
     const user = users.find(u => u.email === email);
     
+    // CRITICAL: Log Security Action for Login
+    if (user) {
+        await dbService.logSecurityAction(user.id, 'USER_LOGIN_SUCCESS', '2FA Verified via OTP');
+    }
+
     setTimeout(() => {
       setLoading(false);
       if (user) onLogin(user);
@@ -418,6 +438,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onRegister }) => {
                                     className="block w-full px-3 py-2 border border-slate-300 rounded-md sm:text-sm"
                                     placeholder="State Council No"
                                 />
+                                <p className="text-[10px] text-slate-400 mt-1">Must be 5-15 alphanumeric characters.</p>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700">NMR UID</label>
@@ -494,8 +515,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onRegister }) => {
                             value={regPhone}
                             onChange={(e) => setRegPhone(e.target.value)}
                             className="block w-full px-3 py-2 border border-slate-300 rounded-md sm:text-sm"
-                            placeholder="+91"
+                            placeholder="10-digit Mobile"
                         />
+                        <p className="text-[10px] text-slate-400 mt-1">Exactly 10 digits required.</p>
                     </div>
                 </div>
 

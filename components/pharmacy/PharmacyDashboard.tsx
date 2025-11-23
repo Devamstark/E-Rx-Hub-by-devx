@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { CheckCircle, Eye, Package, Search, Users, ShoppingCart, Plus, Save, Trash2, Stethoscope, BarChart3, ScanBarcode, X, Activity, Clock, FileText, Phone, MapPin, Edit2, Ban, UserPlus, Link2, User } from 'lucide-react';
+import { CheckCircle, Eye, Package, Search, Users, ShoppingCart, Plus, Save, Trash2, Stethoscope, BarChart3, ScanBarcode, X, Activity, Clock, FileText, Phone, MapPin, Edit2, Ban, UserPlus, Link2, User, AlertOctagon } from 'lucide-react';
 import { Prescription, User as UserType, InventoryItem, DoctorDirectoryEntry, Patient } from '../../types';
 import { PrescriptionModal } from '../doctor/PrescriptionModal';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -8,7 +8,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 interface PharmacyDashboardProps {
     prescriptions: Prescription[];
     onDispense: (id: string, patientId?: string) => void;
-    onReject: (id: string) => void;
+    onReject: (id: string, reason?: string) => void;
     currentUser: UserType;
     onUpdateUser: (user: UserType) => void;
     patients: Patient[];
@@ -35,7 +35,7 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
   // --- Data Filters ---
   const myPrescriptions = prescriptions.filter(p => p.pharmacyId === currentUser.id);
   const queue = myPrescriptions.filter(p => p.status === 'ISSUED');
-  const history = myPrescriptions.filter(p => p.status === 'DISPENSED' || p.status === 'REJECTED');
+  const history = myPrescriptions.filter(p => p.status === 'DISPENSED' || p.status === 'REJECTED' || p.status === 'REJECTED_STOCK');
   const dispensedCount = myPrescriptions.filter(p => p.status === 'DISPENSED').length;
 
   // --- Inventory State ---
@@ -443,8 +443,15 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div className="flex justify-end gap-2">
                                             <button 
-                                                onClick={() => onReject(rx.id)}
-                                                className="text-red-600 hover:text-red-800 px-3 py-1.5 rounded border border-red-200 hover:bg-red-50 transition-colors"
+                                                onClick={() => onReject(rx.id, 'REJECTED_STOCK')}
+                                                className="text-amber-600 hover:text-amber-800 px-3 py-1.5 rounded border border-amber-200 hover:bg-amber-50 transition-colors text-xs flex items-center"
+                                                title="Out of Stock"
+                                            >
+                                                <AlertOctagon className="w-3 h-3 mr-1"/> No Stock
+                                            </button>
+                                            <button 
+                                                onClick={() => onReject(rx.id, 'REJECTED')}
+                                                className="text-red-600 hover:text-red-800 px-3 py-1.5 rounded border border-red-200 hover:bg-red-50 transition-colors text-xs"
                                                 title="Reject Prescription"
                                             >
                                                 Reject
@@ -493,9 +500,11 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
                                           <td className="px-6 py-4 text-sm text-slate-600">Dr. {rx.doctorName}</td>
                                           <td className="px-6 py-4">
                                               <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase border ${
-                                                  rx.status === 'DISPENSED' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'
+                                                  rx.status === 'DISPENSED' ? 'bg-green-50 text-green-700 border-green-200' : 
+                                                  rx.status === 'REJECTED_STOCK' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                  'bg-red-50 text-red-700 border-red-200'
                                               }`}>
-                                                  {rx.status}
+                                                  {rx.status === 'REJECTED_STOCK' ? 'OUT OF STOCK' : rx.status}
                                               </span>
                                           </td>
                                           <td className="px-6 py-4 text-right">
@@ -836,10 +845,11 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
                                   <div className="text-right">
                                       <span className={`text-[10px] font-bold px-2 py-1 rounded-full border ${
                                           rx.status === 'DISPENSED' ? 'bg-green-50 text-green-700 border-green-100' : 
+                                          rx.status === 'REJECTED_STOCK' ? 'bg-amber-50 text-amber-700 border-amber-100' :
                                           rx.status === 'REJECTED' ? 'bg-red-50 text-red-700 border-red-100' : 
                                           'bg-blue-50 text-blue-700 border-blue-100'
                                       }`}>
-                                          {rx.status}
+                                          {rx.status === 'REJECTED_STOCK' ? 'OUT OF STOCK' : rx.status}
                                       </span>
                                   </div>
                               </div>

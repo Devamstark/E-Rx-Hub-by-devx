@@ -1,6 +1,6 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { User, Prescription, UserRole, VerificationStatus, Patient } from '../types';
+import { User, Prescription, UserRole, VerificationStatus, Patient, AuditLog } from '../types';
 
 // --- Default Initial State (Used if DB is empty) ---
 const INITIAL_USERS: User[] = [
@@ -70,7 +70,12 @@ const local = {
         const s = localStorage.getItem('devx_patients');
         return s ? JSON.parse(s) : [];
     },
-    setPatients: (patients: Patient[]) => localStorage.setItem('devx_patients', JSON.stringify(patients))
+    setPatients: (patients: Patient[]) => localStorage.setItem('devx_patients', JSON.stringify(patients)),
+    getAuditLogs: (): AuditLog[] => {
+        const s = localStorage.getItem('devx_audit_logs');
+        return s ? JSON.parse(s) : [];
+    },
+    setAuditLogs: (logs: AuditLog[]) => localStorage.setItem('devx_audit_logs', JSON.stringify(logs))
 };
 
 // --- DB Service API ---
@@ -89,9 +94,20 @@ export const dbService = {
         window.location.reload();
     },
 
-    async loadData(): Promise<{ users: User[], rx: Prescription[], patients: Patient[] }> {
+    signOut: async () => {
+        if (supabase) {
+            await supabase.auth.signOut();
+        }
+    },
+
+    async loadData(): Promise<{ users: User[], rx: Prescription[], patients: Patient[], auditLogs: AuditLog[] }> {
         if (!supabase) {
-            return { users: local.getUsers(), rx: local.getRx(), patients: local.getPatients() };
+            return { 
+                users: local.getUsers(), 
+                rx: local.getRx(), 
+                patients: local.getPatients(),
+                auditLogs: local.getAuditLogs() 
+            };
         }
 
         try {
@@ -115,6 +131,37 @@ export const dbService = {
                 .select('data')
                 .eq('id', 'global_patients')
                 .single();
+
+            // Load Audit Logs with Fallback Strategy
+            let auditLogs: AuditLog[] = [];
+            
+            // 1. Try SQL Table
+            const { data: logsData, error: logsError } = await supabase
+                .from('audit_logs')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(100);
+
+            if (!logsError && logsData && logsData.length > 0) {
+                auditLogs = logsData.map((l: any) => ({
+                    id: l.id,
+                    actorId: l.actor_id,
+                    action: l.action,
+                    details: l.details,
+                    timestamp: l.created_at
+                }));
+            } else {
+                 // 2. Fallback to JSON blob storage
+                 // Use this if SQL table is empty or inaccessible due to RLS
+                 const { data: blobLogs } = await supabase
+                    .from('system_logs')
+                    .select('data')
+                    .eq('id', 'global_audit_logs')
+                    .single();
+                 if (blobLogs && blobLogs.data) {
+                     auditLogs = blobLogs.data;
+                 }
+            }
             
             // Parse or Default
             const users = (userData && userData.data) ? userData.data : INITIAL_USERS;
@@ -126,11 +173,15 @@ export const dbService = {
                  await this.saveUsers(INITIAL_USERS);
             }
 
-            return { users, rx, patients };
+            return { users, rx, patients, auditLogs };
         } catch (e) {
             console.error("DB Load Error:", e);
-            // Fallback to local on error to prevent app crash
-            return { users: local.getUsers(), rx: local.getRx(), patients: local.getPatients() };
+            return { 
+                users: local.getUsers(), 
+                rx: local.getRx(), 
+                patients: local.getPatients(),
+                auditLogs: local.getAuditLogs()
+            };
         }
     },
 
@@ -155,12 +206,62 @@ export const dbService = {
             local.setPatients(patients);
             return;
         }
-        // Try to save to patients table, handling if table doesn't exist gracefully (though UI wont help much there)
         try {
             await supabase.from('patients').upsert({ id: 'global_patients', data: patients });
         } catch (e) {
-            console.warn("Could not save patients to cloud. Ensure 'patients' table exists.", e);
+            console.warn("Could not save patients to cloud.", e);
         }
+    },
+
+    async logSecurityAction(actorId: string, action: string, details: string = ''): Promise<AuditLog> {
+        const log: AuditLog = {
+            id: `log-${Date.now()}-${Math.random().toString(36).substring(2,9)}`,
+            actorId,
+            action,
+            details,
+            timestamp: new Date().toISOString()
+        };
+
+        if (!supabase) {
+            const logs = local.getAuditLogs();
+            local.setAuditLogs([log, ...logs]);
+            return log;
+        }
+
+        try {
+            // Try inserting into real table first
+            const { error } = await supabase.from('audit_logs').insert({
+                actor_id: actorId,
+                action: action,
+                details: details
+            });
+            
+            if (error) throw error;
+
+        } catch (e) {
+            // Fallback: If SQL insert fails (e.g., RLS policy), save to blob storage
+            try {
+                const { data: current } = await supabase
+                    .from('system_logs')
+                    .select('data')
+                    .eq('id', 'global_audit_logs')
+                    .single();
+                
+                const existingLogs = current?.data || [];
+                const updatedLogs = [log, ...existingLogs].slice(0, 500); // Keep last 500 logs
+                
+                await supabase.from('system_logs').upsert({
+                    id: 'global_audit_logs',
+                    data: updatedLogs
+                });
+            } catch (blobErr) {
+                console.error("Security Log Fallback Failed:", blobErr);
+                // Local storage backup
+                const logs = local.getAuditLogs();
+                local.setAuditLogs([log, ...logs]);
+            }
+        }
+        return log;
     },
 
     async uploadFile(file: File): Promise<string> {

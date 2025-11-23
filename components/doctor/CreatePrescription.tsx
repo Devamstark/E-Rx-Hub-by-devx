@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { Medicine, Prescription, User, Patient } from '../../types';
-import { Plus, Trash2, Send, BrainCircuit, FileText, AlertTriangle, Info, Video, User as UserIcon, Search, Check, Link2, UserPlus, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, Send, BrainCircuit, FileText, AlertTriangle, Info, Video, User as UserIcon, Search, Check, Link2, UserPlus, ChevronDown, ChevronUp, Clock, RotateCcw } from 'lucide-react';
 import { analyzePrescriptionSafety } from '../../services/geminiService';
-import { COMMON_MEDICINES } from '../../constants';
+import { COMMON_MEDICINES, RESTRICTED_DRUGS } from '../../constants';
 
 interface CreatePrescriptionProps {
   currentUser: User;
@@ -12,6 +12,7 @@ interface CreatePrescriptionProps {
   verifiedPharmacies: User[];
   patients: Patient[];
   onAddPatient: (p: Patient) => void;
+  prescriptionHistory: Prescription[]; // New Prop for History Lookup
 }
 
 type PrescriptionFormData = Omit<Prescription, 'id' | 'date' | 'status' | 'digitalSignatureToken' | 'doctorId' | 'doctorName' | 'pharmacyName' | 'doctorDetails' | 'patientId'>;
@@ -30,7 +31,14 @@ const getFrequencyDescription = (freq: string): string => {
     return freq;
 };
 
-export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({ currentUser, onPrescriptionSent, verifiedPharmacies, patients, onAddPatient }) => {
+export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({ 
+    currentUser, 
+    onPrescriptionSent, 
+    verifiedPharmacies, 
+    patients, 
+    onAddPatient,
+    prescriptionHistory
+}) => {
   const { register, control, handleSubmit, watch, setValue, formState: { errors } } = useForm<PrescriptionFormData>({
     defaultValues: {
       medicines: [{ name: '', dosage: '', frequency: '', duration: '', instructions: '' }],
@@ -38,7 +46,7 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({ currentU
     }
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control,
     name: 'medicines'
   });
@@ -54,6 +62,13 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({ currentU
   const [showPatientResults, setShowPatientResults] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
 
+  // History Lookup State
+  const [historySearch, setHistorySearch] = useState('');
+  const [showHistoryResults, setShowHistoryResults] = useState(false);
+
+  // Filtered Autocomplete List
+  const safeMedicineList = COMMON_MEDICINES.filter(med => !RESTRICTED_DRUGS.some(restricted => med.toLowerCase().includes(restricted.toLowerCase())));
+
   // New Patient State
   const [newPatient, setNewPatient] = useState<Partial<Patient>>({
       fullName: '', phone: '', dateOfBirth: '', gender: 'Male', address: '', allergies: [], chronicConditions: []
@@ -66,6 +81,11 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({ currentU
   
   const myPatients = patients.filter(p => p.doctorId === currentUser.id);
   const patientResults = myPatients.filter(p => p.fullName.toLowerCase().includes(patientSearch.toLowerCase()) || p.phone.includes(patientSearch));
+
+  // Filter Rx History for Lookup
+  const filteredHistory = prescriptionHistory
+    .filter(rx => rx.patientName.toLowerCase().includes(historySearch.toLowerCase()))
+    .slice(0, 5);
 
   // Auto-calculate age when New Patient DOB changes
   useEffect(() => {
@@ -89,6 +109,15 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({ currentU
       setSelectedPatient(patient);
       setPatientSearch('');
       setShowPatientResults(false);
+  };
+
+  const handleCopyFromHistory = (rx: Prescription) => {
+      setValue('diagnosis', rx.diagnosis);
+      replace(rx.medicines);
+      setValue('advice', rx.advice);
+      setHistorySearch('');
+      setShowHistoryResults(false);
+      alert(`Copied Rx details from ${rx.patientName}'s record dated ${new Date(rx.date).toLocaleDateString()}`);
   };
 
   const handleAnalyze = async () => {
@@ -186,7 +215,47 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({ currentU
         <h2 className="text-xl font-bold text-slate-800 flex items-center">
             <FileText className="mr-2 text-indigo-600"/> New e-Prescription
         </h2>
-        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded border border-green-200">Telemedicine Compliant</span>
+        
+        <div className="flex items-center gap-3">
+            {/* History Lookup Button/Input */}
+            <div className="relative">
+                <div className="flex items-center bg-indigo-50 border border-indigo-200 rounded-md px-3 py-1.5">
+                    <RotateCcw className="w-4 h-4 text-indigo-600 mr-2"/>
+                    <input 
+                        type="text"
+                        placeholder="Copy from Past Rx..."
+                        className="bg-transparent border-none text-xs focus:outline-none w-32 text-indigo-800 placeholder-indigo-400"
+                        value={historySearch}
+                        onChange={(e) => { setHistorySearch(e.target.value); setShowHistoryResults(true); }}
+                        onFocus={() => setShowHistoryResults(true)}
+                    />
+                </div>
+                {showHistoryResults && historySearch && (
+                    <div className="absolute top-full right-0 mt-1 w-80 bg-white border border-slate-200 rounded-md shadow-xl z-30">
+                        <div className="p-2 bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase">Select to Autofill</div>
+                        {filteredHistory.length > 0 ? (
+                            filteredHistory.map(rx => (
+                                <button
+                                    key={rx.id}
+                                    type="button"
+                                    onClick={() => handleCopyFromHistory(rx)}
+                                    className="w-full text-left px-4 py-3 hover:bg-indigo-50 text-sm border-b border-slate-50 last:border-0"
+                                >
+                                    <div className="font-bold text-slate-800">{rx.patientName}</div>
+                                    <div className="text-xs text-slate-500 flex justify-between mt-1">
+                                        <span>{new Date(rx.date).toLocaleDateString()}</span>
+                                        <span className="text-indigo-600">{rx.diagnosis}</span>
+                                    </div>
+                                </button>
+                            ))
+                        ) : (
+                            <div className="p-3 text-xs text-slate-400 italic">No matching history found.</div>
+                        )}
+                    </div>
+                )}
+            </div>
+            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded border border-green-200">Telemedicine Compliant</span>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
@@ -392,7 +461,7 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({ currentU
             </div>
             
             <datalist id="common-medicines">
-                {COMMON_MEDICINES.map(med => <option key={med} value={med} />)}
+                {safeMedicineList.map(med => <option key={med} value={med} />)}
             </datalist>
 
             <div className="space-y-4">

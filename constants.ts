@@ -1,4 +1,5 @@
 
+
 export const INDIAN_STATES = [
   "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", 
   "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", 
@@ -25,3 +26,12 @@ export const COMMON_MEDICINES = [
   "Vitamin C 500mg", "Vitamin D3 60000IU", "B-Complex", "Calcium Carbonate 500mg",
   "Dolo 650", "Augmentin 625", "Pan 40", "Allegra 120mg", "Combiflam"
 ];
+
+export const RESTRICTED_DRUGS = [
+  "Morphine", "Fentanyl", "Oxycodone", "Codeine", "Tramadol", "Alprazolam", "Diazepam", "Lorazepam"
+];
+
+// Security & Validation Regex Patterns
+export const REG_NUMBER_REGEX = /^[a-zA-Z0-9]{5,15}$/; // 5-15 alphanumeric characters
+export const PHONE_REGEX = /^\d{10}$/; // Exactly 10 digits
+export const PINCODE_REGEX = /^\d{6}$/; // Exactly 6 digits

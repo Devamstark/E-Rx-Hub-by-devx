@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { DoctorProfile, DocumentType, UserDocument } from '../../types';
-import { MEDICAL_DEGREES, SPECIALTIES, INDIAN_STATES } from '../../constants';
+import { MEDICAL_DEGREES, SPECIALTIES, INDIAN_STATES, REG_NUMBER_REGEX, PHONE_REGEX, PINCODE_REGEX } from '../../constants';
 import { CheckCircle2, AlertCircle, ChevronRight, ChevronLeft, Loader2, Upload, FileText, Building2, UserSquare2 } from 'lucide-react';
 import { dbService } from '../../services/db';
 
@@ -62,7 +62,13 @@ export const DoctorVerification: React.FC<DoctorVerificationProps> = ({ onComple
     if (!formData.devxId) newErrors.devxId = "DevXWorld Member ID is required";
     if (!formData.medicalDegree) newErrors.medicalDegree = "Primary Degree is required";
     if (!formData.qualifications) newErrors.qualifications = "Full Qualifications are required";
-    if (!formData.registrationNumber) newErrors.registrationNumber = "Registration Number is required";
+    
+    if (!formData.registrationNumber) {
+        newErrors.registrationNumber = "Registration Number is required";
+    } else if (!REG_NUMBER_REGEX.test(formData.registrationNumber)) {
+        newErrors.registrationNumber = "Invalid format. Must be 5-15 alphanumeric chars.";
+    }
+
     if (!formData.nmrUid) newErrors.nmrUid = "NMR UID is required (NMC)";
     if (!formData.stateCouncil) newErrors.stateCouncil = "State Council is required";
     
@@ -80,8 +86,18 @@ export const DoctorVerification: React.FC<DoctorVerificationProps> = ({ onComple
     if (!formData.clinicAddress) newErrors.clinicAddress = "Address is required";
     if (!formData.city) newErrors.city = "City is required";
     if (!formData.state) newErrors.state = "State is required";
-    if (!formData.pincode) newErrors.pincode = "Pincode is required";
-    if (!formData.phone) newErrors.phone = "Phone is required";
+    
+    if (!formData.pincode) {
+        newErrors.pincode = "Pincode is required";
+    } else if (!PINCODE_REGEX.test(formData.pincode)) {
+        newErrors.pincode = "Invalid Pincode. Must be 6 digits.";
+    }
+
+    if (!formData.phone) {
+        newErrors.phone = "Phone is required";
+    } else if (!PHONE_REGEX.test(formData.phone)) {
+        newErrors.phone = "Invalid Phone. Must be 10 digits.";
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -226,7 +242,7 @@ export const DoctorVerification: React.FC<DoctorVerificationProps> = ({ onComple
                     <FileUploadField label="Upload Medical Degree Certificate" type={DocumentType.MEDICAL_DEGREE} required />
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <InputField label="State Reg. Number" name="registrationNumber" required placeholder="e.g. MMC/2015/1234" />
+                        <InputField label="State Reg. Number" name="registrationNumber" required placeholder="e.g. MMC20151234" />
                         <InputField label="NMC UID (National Medical Register)" name="nmrUid" required placeholder="e.g. NMR-2345" />
                     </div>
                     
@@ -254,7 +270,7 @@ export const DoctorVerification: React.FC<DoctorVerificationProps> = ({ onComple
                     <InputField label="Pincode" name="pincode" required />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <InputField label="Official Phone Number" name="phone" required placeholder="+91 98765 43210" />
+                    <InputField label="Official Phone Number" name="phone" required placeholder="10-digit Mobile" />
                     <InputField label="Fax Number (Optional)" name="fax" placeholder="Optional" />
                 </div>
             </div>

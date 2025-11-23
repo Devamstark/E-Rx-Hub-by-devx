@@ -1,13 +1,17 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Layout } from './components/ui/Layout';
 import { Login } from './components/auth/Login';
 import { DoctorDashboard } from './components/doctor/DoctorDashboard';
 import { PharmacyDashboard } from './components/pharmacy/PharmacyDashboard';
 import { AdminDashboard } from './components/admin/AdminDashboard';
-import { User, UserRole, VerificationStatus, DoctorProfile, Prescription, Patient } from './types';
+import { User, UserRole, VerificationStatus, DoctorProfile, Prescription, Patient, AuditLog } from './types';
 import { dbService } from './services/db';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Clock, LogOut } from 'lucide-react';
+
+// Session Timeout Constants
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 Minutes
+const WARNING_THRESHOLD_MS = 29.5 * 60 * 1000; // 29.5 Minutes (Warning 30s before)
 
 function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -17,14 +21,66 @@ function App() {
   const [registeredUsers, setRegisteredUsers] = useState<User[]>([]);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+
+  // Session Management State
+  const [showSessionWarning, setShowSessionWarning] = useState(false);
+  const lastActivityRef = useRef<number>(Date.now());
+
+  // --- Session Management Logic ---
+  const handleLogout = useCallback(async () => {
+    // CRITICAL: LOGOUT SECURITY LOGGING
+    if (currentUser) {
+        await dbService.logSecurityAction(currentUser.id, 'USER_LOGOUT', 'Session terminated/Logout');
+    }
+    setCurrentUser(null);
+    localStorage.removeItem('devx_active_session_id');
+    setShowSessionWarning(false);
+    if (dbService.isCloudEnabled()) {
+        await dbService.signOut();
+    }
+  }, [currentUser]);
+
+  // Idle Check Loop
+  useEffect(() => {
+      if (!currentUser) return;
+
+      const resetIdleTimer = () => {
+          lastActivityRef.current = Date.now();
+          if (showSessionWarning) setShowSessionWarning(false);
+      };
+
+      const events = ['mousemove', 'keydown', 'scroll', 'click'];
+      events.forEach(event => window.addEventListener(event, resetIdleTimer));
+
+      const intervalId = setInterval(() => {
+          const now = Date.now();
+          const timeSinceLastActivity = now - lastActivityRef.current;
+
+          if (timeSinceLastActivity >= IDLE_TIMEOUT_MS) {
+              handleLogout();
+              // Do not use alert(), UI feedback is sufficient or specific logout page
+              // Since alert blocks thread, we avoid it for auto-logout to allow clean cleanup
+          } else if (timeSinceLastActivity >= WARNING_THRESHOLD_MS) {
+              setShowSessionWarning(true);
+          }
+      }, 5000);
+
+      return () => {
+          events.forEach(event => window.removeEventListener(event, resetIdleTimer));
+          clearInterval(intervalId);
+      };
+  }, [currentUser, handleLogout, showSessionWarning]);
+
 
   // --- Initialization & Session Restore ---
   useEffect(() => {
       const init = async () => {
-          const { users, rx, patients: loadedPatients } = await dbService.loadData();
+          const { users, rx, patients: loadedPatients, auditLogs: loadedLogs } = await dbService.loadData();
           setRegisteredUsers(users);
           setPrescriptions(rx);
           setPatients(loadedPatients);
+          setAuditLogs(loadedLogs);
 
           // Restore Session
           try {
@@ -36,6 +92,8 @@ function App() {
                           localStorage.removeItem('devx_active_session_id');
                       } else {
                           setCurrentUser(validUser);
+                          // Update activity ref on restore to prevent immediate timeout
+                          lastActivityRef.current = Date.now();
                       }
                   } else {
                       localStorage.removeItem('devx_active_session_id');
@@ -146,9 +204,9 @@ function App() {
     );
   };
 
-  const handleRejectPrescription = (rxId: string) => {
+  const handleRejectPrescription = (rxId: string, reason: string = 'REJECTED') => {
     setPrescriptions(prev => 
-        prev.map(rx => rx.id === rxId ? { ...rx, status: 'REJECTED' } : rx)
+        prev.map(rx => rx.id === rxId ? { ...rx, status: reason as any } : rx)
     );
   };
 
@@ -160,14 +218,14 @@ function App() {
     setPatients(prev => prev.map(p => p.id === updatedPatient.id ? updatedPatient : p));
   };
 
-  const handleLogin = (user: User) => {
+  const handleLogin = async (user: User) => {
     setCurrentUser(user);
     localStorage.setItem('devx_active_session_id', user.id);
-  };
-
-  const handleLogout = () => {
-    setCurrentUser(null);
-    localStorage.removeItem('devx_active_session_id');
+    lastActivityRef.current = Date.now(); // Reset timer on login
+    
+    // Reload logs to catch the new login event if needed
+    const { auditLogs: freshLogs } = await dbService.loadData();
+    setAuditLogs(freshLogs);
   };
 
   const handleDoctorVerificationComplete = (profile: DoctorProfile) => {
@@ -207,54 +265,75 @@ function App() {
   }
 
   return (
-    <Layout user={currentUser} onLogout={handleLogout}>
-      {!currentUser ? (
-        <Login 
-          onLogin={handleLogin} 
-          users={registeredUsers} 
-          onRegister={handleRegister}
-        />
-      ) : (
-        <div className="animate-in fade-in duration-500">
-          {currentUser.role === UserRole.DOCTOR && (
-            <DoctorDashboard 
-                status={currentUser.verificationStatus} 
-                onVerificationComplete={handleDoctorVerificationComplete}
+    <>
+        <Layout user={currentUser} onLogout={handleLogout}>
+        {!currentUser ? (
+            <Login 
+            onLogin={handleLogin} 
+            users={registeredUsers} 
+            onRegister={handleRegister}
+            />
+        ) : (
+            <div className="animate-in fade-in duration-500">
+            {currentUser.role === UserRole.DOCTOR && (
+                <DoctorDashboard 
+                    status={currentUser.verificationStatus} 
+                    onVerificationComplete={handleDoctorVerificationComplete}
+                    prescriptions={prescriptions}
+                    onCreatePrescription={handleCreatePrescription}
+                    currentUser={currentUser}
+                    verifiedPharmacies={verifiedPharmacies}
+                    patients={patients}
+                    onAddPatient={handleAddPatient}
+                    onUpdatePatient={handleUpdatePatient}
+                />
+            )}
+            {currentUser.role === UserRole.PHARMACY && (
+                <PharmacyDashboard 
+                    prescriptions={prescriptions}
+                    onDispense={handleDispensePrescription}
+                    onReject={handleRejectPrescription}
+                    currentUser={currentUser}
+                    onUpdateUser={handleUpdateUser}
+                    patients={patients}
+                    onAddPatient={handleAddPatient}
+                    onUpdatePatient={handleUpdatePatient}
+                />
+            )}
+            {currentUser.role === UserRole.ADMIN && (
+                <AdminDashboard 
+                users={registeredUsers}
                 prescriptions={prescriptions}
-                onCreatePrescription={handleCreatePrescription}
-                currentUser={currentUser}
-                verifiedPharmacies={verifiedPharmacies}
-                patients={patients}
-                onAddPatient={handleAddPatient}
-                onUpdatePatient={handleUpdatePatient}
-            />
-          )}
-          {currentUser.role === UserRole.PHARMACY && (
-            <PharmacyDashboard 
-                prescriptions={prescriptions}
-                onDispense={handleDispensePrescription}
-                onReject={handleRejectPrescription}
-                currentUser={currentUser}
-                onUpdateUser={handleUpdateUser}
-                patients={patients}
-                onAddPatient={handleAddPatient}
-                onUpdatePatient={handleUpdatePatient}
-            />
-          )}
-          {currentUser.role === UserRole.ADMIN && (
-            <AdminDashboard 
-              users={registeredUsers}
-              prescriptions={prescriptions}
-              onUpdateStatus={handleUpdateUserStatus}
-              onTerminateUser={handleTerminateUser}
-              onDeleteUser={handleDeleteUser}
-              onResetPassword={handleResetPassword}
-              onEditUser={handleUpdateUser}
-            />
-          )}
-        </div>
-      )}
-    </Layout>
+                onUpdateStatus={handleUpdateUserStatus}
+                onTerminateUser={handleTerminateUser}
+                onDeleteUser={handleDeleteUser}
+                onResetPassword={handleResetPassword}
+                onEditUser={handleUpdateUser}
+                auditLogs={auditLogs}
+                />
+            )}
+            </div>
+        )}
+        </Layout>
+
+        {/* Session Warning Modal */}
+        {showSessionWarning && (
+            <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-[100] p-4 backdrop-blur-sm animate-in zoom-in-95">
+                <div className="bg-white rounded-lg shadow-2xl max-w-sm w-full p-6 text-center border-2 border-amber-400">
+                    <Clock className="w-12 h-12 mx-auto text-amber-500 mb-3 animate-pulse"/>
+                    <h3 className="text-lg font-bold text-slate-900">Session Expiring</h3>
+                    <p className="text-slate-600 my-2">Your secure session will expire in less than 30 seconds due to inactivity.</p>
+                    <p className="text-xs text-slate-500 mb-4">Move your mouse or click to stay logged in.</p>
+                    <button 
+                        onClick={() => handleLogout()}
+                        className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-bold flex items-center justify-center"
+                    >
+                        <LogOut className="w-4 h-4 mr-2"/> Logout Now
+                    </button>
+                </div>
+            </div>
+        )}
+    </>
   );
 }
 

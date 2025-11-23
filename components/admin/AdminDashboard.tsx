@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
-import { ShieldAlert, Plus, CheckCircle2, AlertTriangle, Trash2, FileText, Activity, RefreshCw, Ban, File, X, Stethoscope, Building2, Eye, Mail, Phone as PhoneIcon, MapPin, Calendar, Edit2, Save as SaveIcon } from 'lucide-react';
-import { AdminRole, AdminPermission, AdminUser, User, UserRole, VerificationStatus, Prescription, UserDocument } from '../../types';
+import { ShieldAlert, Plus, CheckCircle2, AlertTriangle, Trash2, FileText, Activity, RefreshCw, Ban, File, X, Stethoscope, Building2, Eye, Mail, Phone as PhoneIcon, MapPin, Calendar, Edit2, Save as SaveIcon, Lock } from 'lucide-react';
+import { AdminRole, AdminPermission, AdminUser, User, UserRole, VerificationStatus, Prescription, UserDocument, AuditLog } from '../../types';
 
 interface AdminDashboardProps {
     users: User[];
@@ -10,6 +11,7 @@ interface AdminDashboardProps {
     onDeleteUser: (userId: string) => void;
     onResetPassword: (userId: string) => void;
     onEditUser: (user: User) => void;
+    auditLogs?: AuditLog[];
 }
 
 // --- Mock Data for Internal Admin Management ---
@@ -327,6 +329,117 @@ const UserProfileModal = ({ user, onClose, onSave }: { user: User; onClose: () =
     </div>
   );
 }
+
+const SecurityLogView = ({ logs, users }: { logs: AuditLog[], users: User[] }) => {
+    const [activeTab, setActiveTab] = useState<'ALL' | 'DOCTOR' | 'PHARMACY' | 'ADMIN'>('ALL');
+
+    // User Lookup Helper Map
+    const userMap = new Map<string, { name: string, role: string }>();
+    users.forEach(u => {
+        userMap.set(u.id, { name: u.name, role: u.role });
+    });
+    userMap.set('adm-root', { name: 'System Admin', role: 'ADMIN' });
+
+    const getUserInfo = (actorId: string) => {
+        return userMap.get(actorId) || { name: actorId, role: 'UNKNOWN' };
+    };
+
+    // Filter logs based on active tab
+    const filteredLogs = logs.filter(log => {
+        // For prototype, we are checking mostly Auth events, but generic filter applies
+        if (activeTab === 'ALL') return true;
+        
+        const userInfo = getUserInfo(log.actorId);
+        if (activeTab === 'DOCTOR') return userInfo.role === 'DOCTOR';
+        if (activeTab === 'PHARMACY') return userInfo.role === 'PHARMACY';
+        if (activeTab === 'ADMIN') return userInfo.role === 'ADMIN' || userInfo.role === 'SUPER_ADMIN';
+        
+        return false;
+    });
+
+    return (
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-slate-800 flex items-center">
+                        <Lock className="w-4 h-4 mr-2 text-indigo-600"/> Security Log
+                    </h3>
+                    <span className="text-xs text-slate-500">Forensic Audit Trail</span>
+                </div>
+                
+                {/* Role-Based Filters */}
+                <div className="flex space-x-2">
+                    {[
+                        { id: 'ALL', label: 'All Events' },
+                        { id: 'DOCTOR', label: 'Doctor Logs' },
+                        { id: 'PHARMACY', label: 'Pharmacy Logs' },
+                        { id: 'ADMIN', label: 'Admin Logs' }
+                    ].map((tab) => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id as any)}
+                            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
+                                activeTab === tab.id 
+                                ? 'bg-indigo-600 text-white shadow-sm' 
+                                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                            }`}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200">
+                    <thead className="bg-slate-50">
+                        <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Timestamp</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">User Name</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Role</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Action</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-slate-200">
+                        {filteredLogs.length === 0 ? (
+                            <tr>
+                                <td colSpan={5} className="px-6 py-8 text-center text-slate-500 text-sm">No matching security logs found.</td>
+                            </tr>
+                        ) : (
+                            filteredLogs.map((log) => {
+                                const info = getUserInfo(log.actorId);
+                                return (
+                                    <tr key={log.id} className="hover:bg-slate-50">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                            {new Date(log.timestamp).toLocaleString()}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-900">
+                                            {info.name}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-xs text-slate-500">
+                                            {info.role}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className={`px-2 inline-flex text-[10px] leading-5 font-bold rounded-full uppercase 
+                                                ${log.action.includes('LOGIN') ? 'bg-green-100 text-green-800' : 
+                                                  log.action.includes('LOGOUT') ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-800'}`}>
+                                                {log.action.replace(/_/g, ' ')}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-slate-600">
+                                            {log.details}
+                                        </td>
+                                    </tr>
+                                );
+                            })
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+};
 
 const AnalyticsView = ({ users, prescriptions }: { users: User[], prescriptions: Prescription[] }) => {
     const doctors = users.filter(u => u.role === UserRole.DOCTOR);
@@ -892,9 +1005,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     onTerminateUser,
     onDeleteUser,
     onResetPassword,
-    onEditUser
+    onEditUser,
+    auditLogs = []
 }) => {
-    const [activeView, setActiveView] = useState<'OVERVIEW' | 'REGISTRY' | 'ROLES' | 'ANALYTICS' | 'RX_LOGS'>('OVERVIEW');
+    const [activeView, setActiveView] = useState<'OVERVIEW' | 'REGISTRY' | 'ROLES' | 'ANALYTICS' | 'RX_LOGS' | 'SECURITY_LOG'>('OVERVIEW');
     const [filterStatus, setFilterStatus] = useState<VerificationStatus | 'ALL'>('ALL');
     const [viewDocs, setViewDocs] = useState<UserDocument[] | null>(null);
     const [profileUser, setProfileUser] = useState<User | null>(null);
@@ -921,6 +1035,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         </button>
                         <button onClick={() => setActiveView('RX_LOGS')} className={`w-full text-left px-3 py-2 rounded text-sm font-medium ${activeView === 'RX_LOGS' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}>
                             Prescription Logs
+                        </button>
+                         <button onClick={() => setActiveView('SECURITY_LOG')} className={`w-full text-left px-3 py-2 rounded text-sm font-medium ${activeView === 'SECURITY_LOG' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}>
+                            Security Logs
                         </button>
                         <button onClick={() => setActiveView('REGISTRY')} className={`w-full text-left px-3 py-2 rounded text-sm font-medium ${activeView === 'REGISTRY' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}>
                             Master Registry
@@ -953,6 +1070,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <div className="animate-in fade-in duration-300">
                         <h2 className="text-2xl font-bold text-slate-900 mb-6">E-Prescription Logs</h2>
                         <PrescriptionLog prescriptions={prescriptions} />
+                    </div>
+                )}
+
+                {activeView === 'SECURITY_LOG' && (
+                    <div className="animate-in fade-in duration-300">
+                        <h2 className="text-2xl font-bold text-slate-900 mb-6">Security Audit Logs</h2>
+                        <SecurityLogView logs={auditLogs} users={users} />
                     </div>
                 )}
 

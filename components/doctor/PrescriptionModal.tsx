@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Prescription } from '../../types';
-import { X, Printer, CheckCircle, FileText, ClipboardList, Share2 } from 'lucide-react';
+import { X, Printer, CheckCircle, FileText, ClipboardList, Share2, AlertOctagon } from 'lucide-react';
 import ReactDOMServer from 'react-dom/server';
 import { PrintLayout } from '../ui/PrintLayout';
 
@@ -111,6 +111,18 @@ ${prescription.medicines.map(m => `- ${m.name} (${m.dosage}) | ${m.frequency}`).
 
         {/* Content */}
         <div className="p-6 sm:p-8 space-y-8 overflow-y-auto grow">
+          
+          {/* Status Banner for Doctor feedback */}
+          {prescription.status === 'REJECTED_STOCK' && (
+             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center mb-4 animate-in slide-in-from-top-2">
+                 <AlertOctagon className="w-6 h-6 text-amber-600 mr-3" />
+                 <div>
+                     <h4 className="text-sm font-bold text-amber-800">Pharmacy Feedback: Out of Stock</h4>
+                     <p className="text-xs text-amber-700">The pharmacy rejected this prescription due to unavailable stock.</p>
+                 </div>
+             </div>
+          )}
+
           {/* Doctor & Patient Header */}
           <div className="flex flex-col sm:flex-row justify-between gap-6 p-4 bg-slate-50 rounded-lg border border-slate-100">
             <div>
@@ -186,7 +198,7 @@ ${prescription.medicines.map(m => `- ${m.name} (${m.dosage}) | ${m.frequency}`).
         {/* Footer Actions */}
         <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center shrink-0 rounded-b-xl">
            <div className="text-xs text-slate-500">
-               Status: <span className="font-bold">{prescription.status}</span>
+               Status: <span className="font-bold">{prescription.status === 'REJECTED_STOCK' ? 'OUT OF STOCK' : prescription.status}</span>
            </div>
            
            {isPharmacy && onDispense && (
@@ -200,7 +212,8 @@ ${prescription.medicines.map(m => `- ${m.name} (${m.dosage}) | ${m.frequency}`).
                         </button>
                     ) : (
                         <span className="inline-flex items-center px-4 py-2 rounded-md bg-slate-100 text-slate-600 font-bold border border-slate-200 cursor-not-allowed">
-                            <CheckCircle className="w-4 h-4 mr-2 text-green-600"/> Already Dispensed
+                            <CheckCircle className="w-4 h-4 mr-2 text-green-600"/> 
+                            {prescription.status === 'DISPENSED' ? 'Already Dispensed' : 'Action Locked'}
                         </span>
                     )}
                 </div>

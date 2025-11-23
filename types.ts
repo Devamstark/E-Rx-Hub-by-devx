@@ -212,7 +212,7 @@ export interface Prescription {
   medicines: Medicine[];
   advice: string;
   date: string; // ISO string
-  status: 'ISSUED' | 'DISPENSED' | 'REJECTED' | 'CANCELLED';
+  status: 'ISSUED' | 'DISPENSED' | 'REJECTED' | 'CANCELLED' | 'REJECTED_STOCK';
   pharmacyId?: string;
   pharmacyName?: string;
   digitalSignatureToken: string;
@@ -221,4 +221,12 @@ export interface Prescription {
 export interface VerificationError {
   field: string;
   message: string;
+}
+
+export interface AuditLog {
+  id: string;
+  actorId: string;
+  action: string;
+  details: string;
+  timestamp: string;
 }
