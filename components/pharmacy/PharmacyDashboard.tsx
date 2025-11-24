@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { CheckCircle, Package, Search, Users, ShoppingCart, Plus, Save, Trash2, Stethoscope, BarChart3, ScanBarcode, X, Activity, Calculator, FileText, Phone, MapPin, Edit2, AlertOctagon, Receipt, Truck, BookOpen, BrainCircuit, CreditCard, Filter, Building2, Printer, RotateCcw, AlertTriangle, UserPlus, UserCheck, ArrowRight, User, Wallet, ArrowLeft, Keyboard } from 'lucide-react';
 import { Prescription, User as UserType, InventoryItem, DoctorDirectoryEntry, Patient, Supplier, Customer, Sale, SaleItem, GRN, Expense, SalesReturn } from '../../types';
@@ -599,7 +598,7 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
     <div className="max-w-[1600px] mx-auto animate-in fade-in duration-500 min-h-screen pb-20">
       
       {/* Top Header */}
-      <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-4">
         <div>
             <h1 className="text-2xl font-bold text-slate-900 flex items-center">
                 <Building2 className="mr-2 text-indigo-600"/> {currentUser.clinicName || 'Pharmacy ERP'}
@@ -616,8 +615,8 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="flex overflow-x-auto gap-2 mb-6 pb-2 no-scrollbar">
+      {/* Navigation Tabs - Updated for Easy Scroll */}
+      <div className="flex overflow-x-auto gap-2 mb-6 pb-2 w-full whitespace-nowrap -mx-4 px-4 sm:mx-0 sm:px-0">
           {[
               { id: 'DASHBOARD', label: 'Overview', icon: Activity },
               { id: 'ERX', label: 'e-Prescriptions', icon: FileText },
@@ -631,7 +630,7 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
               <button 
                 key={tab.id}
                 onClick={() => setView(tab.id as any)}
-                className={`px-5 py-3 rounded-xl text-sm font-bold flex items-center whitespace-nowrap transition-all border ${
+                className={`px-5 py-3 rounded-xl text-sm font-bold flex items-center whitespace-nowrap transition-all border shrink-0 ${
                     view === tab.id 
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-200' 
                     : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
@@ -699,11 +698,11 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
 
       {/* === POS / BILLING VIEW === */}
       {view === 'POS' && (
-          <div className="grid grid-cols-12 gap-6 h-[calc(100vh-200px)] animate-in fade-in">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-auto lg:h-[calc(100vh-200px)] animate-in fade-in pb-20 lg:pb-0">
               {/* Item Selection (Left) */}
-              <div className="col-span-8 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
-                  <div className="p-4 border-b border-slate-200 bg-slate-50 flex gap-4">
-                      <div className="relative flex-1">
+              <div className="col-span-1 lg:col-span-8 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden h-[60vh] sm:h-[500px] lg:h-full">
+                  <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row gap-3 sm:gap-4">
+                      <div className="relative flex-1 w-full">
                           <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400"/>
                           <input 
                             className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 text-sm"
@@ -715,7 +714,7 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
                       </div>
                       <button 
                         onClick={openQuickAdd}
-                        className="bg-teal-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-teal-700 flex items-center whitespace-nowrap"
+                        className="w-full sm:w-auto bg-teal-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-teal-700 flex items-center justify-center whitespace-nowrap"
                       >
                         <Plus className="w-4 h-4 mr-1"/> Quick Add Item
                       </button>
@@ -732,51 +731,53 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
                                <button onClick={openQuickAdd} className="text-indigo-600 font-bold mt-2 hover:underline">Quick Add "{posSearch}" to Inventory</button>
                           </div>
                       ) : (
-                        <table className="w-full text-sm text-left">
-                            <thead className="text-xs text-slate-500 uppercase bg-slate-50 sticky top-0 z-10">
-                                <tr>
-                                    <th className="px-4 py-3">Item Name</th>
-                                    <th className="px-4 py-3">Batch</th>
-                                    <th className="px-4 py-3">Expiry</th>
-                                    <th className="px-4 py-3 text-right">Stock</th>
-                                    <th className="px-4 py-3 text-right">MRP</th>
-                                    <th className="px-4 py-3 text-center">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {inventory.filter(i => {
-                                    const s = posSearch.toLowerCase();
-                                    return (i.name.toLowerCase().includes(s) || (i.genericName || '').toLowerCase().includes(s) || (i.barcode || '').includes(s)) && i.stock > 0;
-                                }).map(item => (
-                                    <tr key={item.id} className="hover:bg-indigo-50 transition-colors">
-                                        <td className="px-4 py-3">
-                                            <div className="font-medium text-slate-900">{item.name}</div>
-                                            {item.genericName && <div className="text-xs text-slate-500 italic">{item.genericName}</div>}
-                                        </td>
-                                        <td className="px-4 py-3 font-mono text-slate-600 text-xs">{item.batchNumber}</td>
-                                        <td className={`px-4 py-3 text-xs font-bold ${item.expiryDate && new Date(item.expiryDate) < new Date() ? 'text-red-600' : 'text-green-600'}`}>
-                                            {item.expiryDate || 'N/A'}
-                                        </td>
-                                        <td className="px-4 py-3 text-right">{item.stock}</td>
-                                        <td className="px-4 py-3 text-right">₹{item.mrp}</td>
-                                        <td className="px-4 py-3 text-center">
-                                            <button 
-                                                onClick={() => addToCart(item)}
-                                                className="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-bold hover:bg-indigo-700"
-                                            >
-                                                Add +
-                                            </button>
-                                        </td>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="text-xs text-slate-500 uppercase bg-slate-50 sticky top-0 z-10">
+                                    <tr>
+                                        <th className="px-4 py-3">Item Name</th>
+                                        <th className="px-4 py-3">Batch</th>
+                                        <th className="px-4 py-3">Expiry</th>
+                                        <th className="px-4 py-3 text-right">Stock</th>
+                                        <th className="px-4 py-3 text-right">MRP</th>
+                                        <th className="px-4 py-3 text-center">Action</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {inventory.filter(i => {
+                                        const s = posSearch.toLowerCase();
+                                        return (i.name.toLowerCase().includes(s) || (i.genericName || '').toLowerCase().includes(s) || (i.barcode || '').includes(s)) && i.stock > 0;
+                                    }).map(item => (
+                                        <tr key={item.id} className="hover:bg-indigo-50 transition-colors">
+                                            <td className="px-4 py-3">
+                                                <div className="font-medium text-slate-900">{item.name}</div>
+                                                {item.genericName && <div className="text-xs text-slate-500 italic">{item.genericName}</div>}
+                                            </td>
+                                            <td className="px-4 py-3 font-mono text-slate-600 text-xs">{item.batchNumber}</td>
+                                            <td className={`px-4 py-3 text-xs font-bold ${item.expiryDate && new Date(item.expiryDate) < new Date() ? 'text-red-600' : 'text-green-600'}`}>
+                                                {item.expiryDate || 'N/A'}
+                                            </td>
+                                            <td className="px-4 py-3 text-right">{item.stock}</td>
+                                            <td className="px-4 py-3 text-right">₹{item.mrp}</td>
+                                            <td className="px-4 py-3 text-center">
+                                                <button 
+                                                    onClick={() => addToCart(item)}
+                                                    className="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-bold hover:bg-indigo-700"
+                                                >
+                                                    Add +
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                       )}
                   </div>
               </div>
 
               {/* Cart / Checkout (Right) */}
-              <div className="col-span-4 bg-white rounded-xl shadow-lg border border-slate-200 flex flex-col h-full">
+              <div className="col-span-1 lg:col-span-4 bg-white rounded-xl shadow-lg border border-slate-200 flex flex-col h-auto lg:h-full min-h-[500px]">
                   <div className="p-4 bg-indigo-900 text-white rounded-t-xl flex justify-between items-center shrink-0">
                       <h3 className="font-bold flex items-center"><ShoppingCart className="mr-2 w-5 h-5"/> Current Bill</h3>
                       <span className="bg-indigo-700 px-2 py-1 rounded text-xs">{cart.length} Items</span>
@@ -1110,22 +1111,24 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
 
                       {grnItems.length > 0 && (
                           <div className="mb-4">
-                              <table className="w-full text-sm">
-                                  <thead className="bg-slate-100 text-xs text-slate-500 uppercase">
-                                      <tr><th>Item</th><th>Batch</th><th>Qty</th><th>Cost</th><th>Total</th></tr>
-                                  </thead>
-                                  <tbody>
-                                      {grnItems.map((i, idx) => (
-                                          <tr key={idx} className="border-b">
-                                              <td className="p-2">{i.name}</td>
-                                              <td className="p-2">{i.batchNumber}</td>
-                                              <td className="p-2">{i.stock}</td>
-                                              <td className="p-2">{i.purchasePrice}</td>
-                                              <td className="p-2">{i.stock * i.purchasePrice}</td>
-                                          </tr>
-                                      ))}
-                                  </tbody>
-                              </table>
+                              <div className="overflow-x-auto">
+                                  <table className="w-full text-sm">
+                                      <thead className="bg-slate-100 text-xs text-slate-500 uppercase">
+                                          <tr><th>Item</th><th>Batch</th><th>Qty</th><th>Cost</th><th>Total</th></tr>
+                                      </thead>
+                                      <tbody>
+                                          {grnItems.map((i, idx) => (
+                                              <tr key={idx} className="border-b">
+                                                  <td className="p-2">{i.name}</td>
+                                                  <td className="p-2">{i.batchNumber}</td>
+                                                  <td className="p-2">{i.stock}</td>
+                                                  <td className="p-2">{i.purchasePrice}</td>
+                                                  <td className="p-2">{i.stock * i.purchasePrice}</td>
+                                              </tr>
+                                          ))}
+                                      </tbody>
+                                  </table>
+                              </div>
                           </div>
                       )}
 
@@ -1137,39 +1140,41 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
               )}
 
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                   <table className="min-w-full divide-y divide-slate-200">
-                       <thead className="bg-slate-50">
-                           <tr>
-                               <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Product</th>
-                               <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Batch Info</th>
-                               <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Stock</th>
-                               <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Value</th>
-                           </tr>
-                       </thead>
-                       <tbody className="bg-white divide-y divide-slate-200">
-                           {inventory.map(item => (
-                               <tr key={item.id} className="hover:bg-slate-50">
-                                   <td className="px-6 py-4">
-                                       <p className="font-bold text-slate-900 text-sm">{item.name}</p>
-                                       {item.genericName && <p className="text-xs text-slate-500 italic">{item.genericName}</p>}
-                                       <p className="text-xs text-slate-400 mt-0.5">{item.manufacturer}</p>
-                                   </td>
-                                   <td className="px-6 py-4">
-                                       <p className="text-xs font-mono text-slate-600">{item.batchNumber}</p>
-                                       <p className={`text-xs font-bold ${item.expiryDate && new Date(item.expiryDate) < new Date() ? 'text-red-500' : 'text-slate-500'}`}>Exp: {item.expiryDate || 'N/A'}</p>
-                                   </td>
-                                   <td className="px-6 py-4 text-right">
-                                       <span className={`px-2 py-1 rounded text-xs font-bold ${item.stock <= item.minStockLevel ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                                           {item.stock} Units
-                                       </span>
-                                   </td>
-                                   <td className="px-6 py-4 text-right text-sm font-bold text-slate-700">
-                                       ₹{item.stock * item.purchasePrice}
-                                   </td>
-                               </tr>
-                           ))}
-                       </tbody>
-                   </table>
+                   <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-slate-200">
+                            <thead className="bg-slate-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Product</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Batch Info</th>
+                                    <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Stock</th>
+                                    <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Value</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-slate-200">
+                                {inventory.map(item => (
+                                    <tr key={item.id} className="hover:bg-slate-50">
+                                        <td className="px-6 py-4">
+                                            <p className="font-bold text-slate-900 text-sm">{item.name}</p>
+                                            {item.genericName && <p className="text-xs text-slate-500 italic">{item.genericName}</p>}
+                                            <p className="text-xs text-slate-400 mt-0.5">{item.manufacturer}</p>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <p className="text-xs font-mono text-slate-600">{item.batchNumber}</p>
+                                            <p className={`text-xs font-bold ${item.expiryDate && new Date(item.expiryDate) < new Date() ? 'text-red-500' : 'text-slate-500'}`}>Exp: {item.expiryDate || 'N/A'}</p>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <span className={`px-2 py-1 rounded text-xs font-bold ${item.stock <= item.minStockLevel ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                                {item.stock} Units
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-sm font-bold text-slate-700">
+                                            ₹{item.stock * item.purchasePrice}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                   </div>
               </div>
           </div>
       )}
@@ -1359,40 +1364,42 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
                       /* RETURN INTERFACE */
                       <div className="bg-red-50 p-4 rounded border border-red-100">
                           <h4 className="font-bold text-red-800 mb-2 flex items-center"><RotateCcw className="w-4 h-4 mr-2"/> Process Return: {sales.find(s => s.id === returnSaleId)?.invoiceNumber}</h4>
-                          <table className="w-full text-sm mb-4">
-                              <thead>
-                                  <tr>
-                                      <th className="text-left">Item</th>
-                                      <th className="text-right">Sold Qty</th>
-                                      <th className="text-right">Price</th>
-                                      <th className="text-right">Return Qty</th>
-                                  </tr>
-                              </thead>
-                              <tbody>
-                                  {returnItems.map((r, i) => (
-                                      <tr key={i}>
-                                          <td>{r.item.name}</td>
-                                          <td className="text-right">{r.item.quantity}</td>
-                                          <td className="text-right">{r.item.mrp}</td>
-                                          <td className="text-right">
-                                              <input 
-                                                type="number"
-                                                className="w-16 border rounded p-1 text-right"
-                                                min={0}
-                                                max={r.item.quantity}
-                                                value={r.returnQty}
-                                                onChange={(e) => {
-                                                    const val = Math.min(parseInt(e.target.value)||0, r.item.quantity);
-                                                    const newItems = [...returnItems];
-                                                    newItems[i].returnQty = val;
-                                                    setReturnItems(newItems);
-                                                }}
-                                              />
-                                          </td>
+                          <div className="overflow-x-auto">
+                              <table className="w-full text-sm mb-4">
+                                  <thead>
+                                      <tr>
+                                          <th className="text-left">Item</th>
+                                          <th className="text-right">Sold Qty</th>
+                                          <th className="text-right">Price</th>
+                                          <th className="text-right">Return Qty</th>
                                       </tr>
-                                  ))}
-                              </tbody>
-                          </table>
+                                  </thead>
+                                  <tbody>
+                                      {returnItems.map((r, i) => (
+                                          <tr key={i}>
+                                              <td>{r.item.name}</td>
+                                              <td className="text-right">{r.item.quantity}</td>
+                                              <td className="text-right">{r.item.mrp}</td>
+                                              <td className="text-right">
+                                                  <input 
+                                                    type="number"
+                                                    className="w-16 border rounded p-1 text-right"
+                                                    min={0}
+                                                    max={r.item.quantity}
+                                                    value={r.returnQty}
+                                                    onChange={(e) => {
+                                                        const val = Math.min(parseInt(e.target.value)||0, r.item.quantity);
+                                                        const newItems = [...returnItems];
+                                                        newItems[i].returnQty = val;
+                                                        setReturnItems(newItems);
+                                                    }}
+                                                  />
+                                              </td>
+                                          </tr>
+                                      ))}
+                                  </tbody>
+                              </table>
+                          </div>
                           <div className="flex justify-end gap-3">
                               <button onClick={() => {setReturnSaleId(''); setReturnItems([]);}} className="text-slate-500 font-bold text-xs">Cancel</button>
                               <button 
@@ -1576,51 +1583,53 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
                               </div>
                               
                               <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
-                                  <table className="min-w-full divide-y divide-slate-200">
-                                      <thead className="bg-slate-50">
-                                          <tr>
-                                              <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Date</th>
-                                              <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Doctor / Diagnosis</th>
-                                              <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Medicines</th>
-                                              <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Status</th>
-                                              <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Action</th>
-                                          </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-slate-100">
-                                          {prescriptions.filter(rx => rx.patientId === viewingPatient.id || rx.patientName?.toLowerCase() === viewingPatient.fullName.toLowerCase()).map(rx => (
-                                              <tr key={rx.id} className="hover:bg-slate-50 transition-colors">
-                                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                                                      {new Date(rx.date).toLocaleDateString()}
-                                                  </td>
-                                                  <td className="px-6 py-4 text-sm text-slate-800">
-                                                      <div className="font-bold">Dr. {rx.doctorName}</div>
-                                                      <div className="text-xs text-slate-500">{rx.diagnosis}</div>
-                                                  </td>
-                                                  <td className="px-6 py-4 text-xs text-slate-600 max-w-xs truncate">
-                                                      {rx.medicines.map(m => m.name).join(', ')}
-                                                  </td>
-                                                  <td className="px-6 py-4 whitespace-nowrap">
-                                                      <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase border ${
-                                                          rx.status === 'DISPENSED' ? 'bg-green-50 text-green-700 border-green-200' :
-                                                          rx.status === 'REJECTED' ? 'bg-red-50 text-red-700 border-red-200' :
-                                                          rx.status === 'REJECTED_STOCK' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                                          'bg-blue-50 text-blue-700 border-blue-200'
-                                                      }`}>
-                                                          {rx.status.replace('_', ' ')}
-                                                      </span>
-                                                  </td>
-                                                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                                                      <button onClick={() => setSelectedRx(rx)} className="text-indigo-600 hover:text-indigo-800 text-xs font-bold border border-indigo-100 hover:bg-indigo-50 px-3 py-1.5 rounded">
-                                                          View Details
-                                                      </button>
-                                                  </td>
+                                  <div className="overflow-x-auto">
+                                      <table className="min-w-full divide-y divide-slate-200">
+                                          <thead className="bg-slate-50">
+                                              <tr>
+                                                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Date</th>
+                                                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Doctor / Diagnosis</th>
+                                                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Medicines</th>
+                                                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Status</th>
+                                                  <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Action</th>
                                               </tr>
-                                          ))}
-                                          {prescriptions.filter(rx => rx.patientId === viewingPatient.id || rx.patientName?.toLowerCase() === viewingPatient.fullName.toLowerCase()).length === 0 && (
-                                              <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500 italic">No prescriptions found for this patient.</td></tr>
-                                          )}
-                                      </tbody>
-                                  </table>
+                                          </thead>
+                                          <tbody className="divide-y divide-slate-100">
+                                              {prescriptions.filter(rx => rx.patientId === viewingPatient.id || rx.patientName?.toLowerCase() === viewingPatient.fullName.toLowerCase()).map(rx => (
+                                                  <tr key={rx.id} className="hover:bg-slate-50 transition-colors">
+                                                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                                          {new Date(rx.date).toLocaleDateString()}
+                                                      </td>
+                                                      <td className="px-6 py-4 text-sm text-slate-800">
+                                                          <div className="font-bold">Dr. {rx.doctorName}</div>
+                                                          <div className="text-xs text-slate-500">{rx.diagnosis}</div>
+                                                      </td>
+                                                      <td className="px-6 py-4 text-xs text-slate-600 max-w-xs truncate">
+                                                          {rx.medicines.map(m => m.name).join(', ')}
+                                                      </td>
+                                                      <td className="px-6 py-4 whitespace-nowrap">
+                                                          <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase border ${
+                                                              rx.status === 'DISPENSED' ? 'bg-green-50 text-green-700 border-green-200' :
+                                                              rx.status === 'REJECTED' ? 'bg-red-50 text-red-700 border-red-200' :
+                                                              rx.status === 'REJECTED_STOCK' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                                              'bg-blue-50 text-blue-700 border-blue-200'
+                                                          }`}>
+                                                              {rx.status.replace('_', ' ')}
+                                                          </span>
+                                                      </td>
+                                                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                                                          <button onClick={() => setSelectedRx(rx)} className="text-indigo-600 hover:text-indigo-800 text-xs font-bold border border-indigo-100 hover:bg-indigo-50 px-3 py-1.5 rounded">
+                                                              View Details
+                                                          </button>
+                                                      </td>
+                                                  </tr>
+                                              ))}
+                                              {prescriptions.filter(rx => rx.patientId === viewingPatient.id || rx.patientName?.toLowerCase() === viewingPatient.fullName.toLowerCase()).length === 0 && (
+                                                  <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500 italic">No prescriptions found for this patient.</td></tr>
+                                              )}
+                                          </tbody>
+                                      </table>
+                                  </div>
                               </div>
                           </div>
                       </div>
@@ -1753,40 +1762,42 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
               
               {erxTab === 'HISTORY' && (
                   <div className="bg-white shadow-sm rounded-lg border border-slate-200 overflow-hidden">
-                      <table className="min-w-full divide-y divide-slate-200">
-                          <thead className="bg-slate-50">
-                              <tr>
-                                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Rx ID</th>
-                                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Date Processed</th>
-                                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Patient</th>
-                                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Items</th>
-                                  <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Status</th>
-                                  <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">View</th>
-                              </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-slate-200">
-                              {history.map(rx => (
-                                  <tr key={rx.id} className="hover:bg-slate-50">
-                                      <td className="px-6 py-4 text-xs font-mono text-slate-500">{rx.id}</td>
-                                      <td className="px-6 py-4 text-sm text-slate-700">{new Date(rx.date).toLocaleDateString()}</td>
-                                      <td className="px-6 py-4 text-sm font-bold text-slate-800">{rx.patientName}</td>
-                                      <td className="px-6 py-4 text-xs text-slate-600 max-w-xs truncate">{rx.medicines.map(m=>m.name).join(', ')}</td>
-                                      <td className="px-6 py-4">
-                                          <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase border ${
-                                              rx.status === 'DISPENSED' ? 'bg-green-50 text-green-700 border-green-200' : 
-                                              rx.status === 'REJECTED_STOCK' ? 'bg-orange-50 text-orange-700 border-orange-200' : 
-                                              'bg-red-50 text-red-700 border-red-200'
-                                          }`}>
-                                              {rx.status.replace('_', ' ')}
-                                          </span>
-                                      </td>
-                                      <td className="px-6 py-4 text-right">
-                                          <button onClick={() => setSelectedRx(rx)} className="text-indigo-600 hover:underline text-xs font-bold">Details</button>
-                                      </td>
-                                  </tr>
-                              ))}
-                          </tbody>
-                      </table>
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-slate-200">
+                            <thead className="bg-slate-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Rx ID</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Date Processed</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Patient</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Items</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Status</th>
+                                    <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">View</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-slate-200">
+                                {history.map(rx => (
+                                    <tr key={rx.id} className="hover:bg-slate-50">
+                                        <td className="px-6 py-4 text-xs font-mono text-slate-500">{rx.id}</td>
+                                        <td className="px-6 py-4 text-sm text-slate-700">{new Date(rx.date).toLocaleDateString()}</td>
+                                        <td className="px-6 py-4 text-sm font-bold text-slate-800">{rx.patientName}</td>
+                                        <td className="px-6 py-4 text-xs text-slate-600 max-w-xs truncate">{rx.medicines.map(m=>m.name).join(', ')}</td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase border ${
+                                                rx.status === 'DISPENSED' ? 'bg-green-50 text-green-700 border-green-200' : 
+                                                rx.status === 'REJECTED_STOCK' ? 'bg-orange-50 text-orange-700 border-orange-200' : 
+                                                'bg-red-50 text-red-700 border-red-200'
+                                            }`}>
+                                                {rx.status.replace('_', ' ')}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <button onClick={() => setSelectedRx(rx)} className="text-indigo-600 hover:underline text-xs font-bold">Details</button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                      </div>
                   </div>
               )}
           </div>
