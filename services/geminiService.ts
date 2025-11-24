@@ -1,5 +1,6 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
-import { Medicine } from "../types";
+import { Medicine, InventoryItem, Sale } from "../types";
 
 const getClient = () => {
     let apiKey = '';
@@ -70,5 +71,90 @@ export const analyzePrescriptionSafety = async (
     } catch (error) {
         console.error("Gemini API Error:", error);
         return { safe: true, warnings: ["Error analyzing prescription"], advice: "" };
+    }
+};
+
+export const getPharmacyAIInsights = async (
+    inventory: InventoryItem[],
+    recentSales: Sale[]
+): Promise<{ 
+    reorderSuggestions: { itemName: string, reason: string }[], 
+    pricingTips: { itemName: string, tip: string }[],
+    anomalies: string[] 
+}> => {
+    const ai = getClient();
+    if (!ai) {
+        return { reorderSuggestions: [], pricingTips: [], anomalies: ["AI Unavailable"] };
+    }
+
+    // Prepare summary data to avoid sending too much tokens
+    const lowStock = inventory.filter(i => i.stock < i.minStockLevel).map(i => `${i.name} (Stock: ${i.stock})`);
+    const salesSummary = recentSales.slice(0, 5).map(s => `Sale ${s.invoiceNumber}: ${s.roundedTotal}`).join(", ");
+    const nearExpiry = inventory.filter(i => {
+        const diff = new Date(i.expiryDate).getTime() - new Date().getTime();
+        return diff > 0 && diff < 30 * 24 * 60 * 60 * 1000;
+    }).map(i => `${i.name} (Exp: ${i.expiryDate})`);
+
+    const prompt = `
+        Analyze this pharmacy data:
+        Low Stock Items: ${lowStock.join(", ")}
+        Near Expiry Items: ${nearExpiry.join(", ")}
+        Recent Sales Sample: ${salesSummary}
+        
+        Provide:
+        1. 3 Reorder suggestions based on low stock or logic.
+        2. 2 Pricing/Sales tips (e.g. discount near expiry).
+        3. Identify any data anomalies or billing risks if apparent.
+        
+        Return JSON.
+    `;
+
+    try {
+         const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        reorderSuggestions: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    itemName: { type: Type.STRING },
+                                    reason: { type: Type.STRING }
+                                }
+                            }
+                        },
+                        pricingTips: {
+                             type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    itemName: { type: Type.STRING },
+                                    tip: { type: Type.STRING }
+                                }
+                            }
+                        },
+                        anomalies: {
+                            type: Type.ARRAY,
+                            items: { type: Type.STRING }
+                        }
+                    }
+                }
+            }
+        });
+        
+        const text = response.text;
+        if (text) {
+             return JSON.parse(text);
+        }
+        return { reorderSuggestions: [], pricingTips: [], anomalies: [] };
+
+    } catch (e) {
+        console.error("AI Insight Error", e);
+        return { reorderSuggestions: [], pricingTips: [], anomalies: ["Analysis Failed"] };
     }
 };

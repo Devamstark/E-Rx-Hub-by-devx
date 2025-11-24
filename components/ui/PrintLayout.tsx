@@ -93,7 +93,7 @@ export const PrintLayout: React.FC<PrintLayoutProps> = ({ rx }) => {
       </div>
 
       {/* Medicines */}
-      <div className="mb-12">
+      <div className="mb-8">
         <table className="w-full text-sm text-left border-collapse">
             <thead className="border-b-2 border-slate-800">
                 <tr>
@@ -125,13 +125,21 @@ export const PrintLayout: React.FC<PrintLayoutProps> = ({ rx }) => {
         </table>
       </div>
 
-      {/* Advice */}
-      {rx.advice && (
-          <div className="mb-12 p-4 bg-slate-50 rounded border border-slate-200 print:bg-transparent print:border-slate-300">
+      {/* Advice & Follow-up */}
+      <div className="mb-12 p-4 bg-slate-50 rounded border border-slate-200 print:bg-transparent print:border-slate-300 grid grid-cols-2 gap-4">
+          <div className="col-span-2">
               <h4 className="font-bold text-slate-700 mb-2 text-xs uppercase">Additional Advice:</h4>
-              <p className="text-slate-800 whitespace-pre-wrap text-sm leading-relaxed">{rx.advice}</p>
+              <p className="text-slate-800 whitespace-pre-wrap text-sm leading-relaxed">{rx.advice || 'None'}</p>
           </div>
-      )}
+          <div className="border-t border-slate-200 pt-2 mt-2">
+              <span className="font-bold text-slate-500 text-xs uppercase">Refills Allowed:</span>
+              <span className="ml-2 font-bold text-slate-900">{rx.refills || 0}</span>
+          </div>
+          <div className="border-t border-slate-200 pt-2 mt-2">
+              <span className="font-bold text-slate-500 text-xs uppercase">Next Follow-up:</span>
+              <span className="ml-2 font-bold text-slate-900">{rx.followUpDate ? new Date(rx.followUpDate).toLocaleDateString() : 'PRN'}</span>
+          </div>
+      </div>
 
       {/* Footer & Signature */}
       <div className="mt-auto pt-4 flex justify-between items-end">
@@ -150,7 +158,7 @@ export const PrintLayout: React.FC<PrintLayoutProps> = ({ rx }) => {
              </div>
              <div className="border-t-2 border-slate-800 pt-2">
                  <p className="text-sm font-bold uppercase text-slate-900">Dr. {doc.name}</p>
-                 <p className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mt-0.5">Reg. No: {doc.registrationNumber}</p>
+                 <p className="text-xs text-slate-500 uppercase tracking-wider font-bold mt-0.5">Reg. No: {doc.registrationNumber}</p>
              </div>
         </div>
       </div>

@@ -405,7 +405,7 @@ const SecurityLogView = ({ logs, users }: { logs: AuditLog[], users: User[] }) =
                 <table className="min-w-full divide-y divide-slate-200">
                     <thead className="bg-slate-50">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Timestamp</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Timestamp (IST)</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">User Name</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Role</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Action</th>
@@ -423,7 +423,8 @@ const SecurityLogView = ({ logs, users }: { logs: AuditLog[], users: User[] }) =
                                 return (
                                     <tr key={log.id} className="hover:bg-slate-50">
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                                            {new Date(log.timestamp).toLocaleString()}
+                                            {/* FORCE IST (Indian Standard Time) for Audit Accuracy */}
+                                            {new Date(log.timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'medium' })}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-900">
                                             {info.name}

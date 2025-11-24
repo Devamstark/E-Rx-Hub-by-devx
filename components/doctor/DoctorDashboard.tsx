@@ -148,7 +148,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                                                 rx.status === 'REJECTED' ? 'bg-red-100 text-red-800' :
                                                 'bg-blue-100 text-blue-800'
                                             }`}>
-                                                {rx.status === 'REJECTED_STOCK' ? 'OUT OF STOCK' : rx.status}
+                                                {rx.status === 'REJECTED_STOCK' ? 'OUT OF STOCK' : rx.status === 'SENT_TO_PHARMACY' ? 'SENT TO PHARMACY' : rx.status}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 text-right">

@@ -1,6 +1,6 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { User, Prescription, UserRole, VerificationStatus, Patient, AuditLog } from '../types';
+import { User, Prescription, UserRole, VerificationStatus, Patient, AuditLog, PrescriptionTemplate, Supplier, Customer, Sale, Expense, SalesReturn } from '../types';
 
 // --- Default Initial State (Used if DB is empty) ---
 const INITIAL_USERS: User[] = [
@@ -13,6 +13,84 @@ const INITIAL_USERS: User[] = [
     verificationStatus: VerificationStatus.VERIFIED,
     registrationDate: new Date().toISOString()
   }
+];
+
+const INITIAL_RX: Prescription[] = [
+    {
+        id: 'RX-2024-001',
+        doctorId: 'DOC-1709823', // Generic or matches a future doc
+        doctorName: 'Dr. Ridham Trivedi',
+        doctorDetails: {
+            name: 'Ridham Trivedi',
+            qualifications: 'MBBS, MD (Medicine)',
+            registrationNumber: 'MCI-12345',
+            nmrUid: 'NMR-5566',
+            stateCouncil: 'Maharashtra Medical Council',
+            clinicName: 'Trivedi Hospital',
+            clinicAddress: '123 Health St, Bandra West',
+            city: 'Mumbai',
+            state: 'Maharashtra',
+            pincode: '400050',
+            phone: '9876543210',
+            email: 'dr.ridham@example.com',
+            specialty: 'Cardiologist'
+        },
+        patientId: 'PAT-001',
+        patientName: 'Amit Sharma',
+        patientAge: 45,
+        patientGender: 'Male',
+        diagnosis: 'Hypertension',
+        medicines: [
+            { name: 'Amlodipine', dosage: '5mg', frequency: 'OD', duration: '30 days', instructions: 'After breakfast' }
+        ],
+        advice: 'Reduce salt intake. Regular morning walk for 30 mins.',
+        date: new Date(Date.now() - 86400000 * 10).toISOString(), // 10 days ago
+        status: 'DISPENSED',
+        pharmacyId: 'sup-1', 
+        pharmacyName: 'Apollo Pharmacy',
+        digitalSignatureToken: 'SIG-MOCK-1'
+    },
+    {
+        id: 'RX-2024-002',
+        doctorId: 'DOC-1709823',
+        doctorName: 'Dr. Ridham Trivedi',
+        doctorDetails: {
+             name: 'Ridham Trivedi',
+            qualifications: 'MBBS, MD (Medicine)',
+            registrationNumber: 'MCI-12345',
+            nmrUid: 'NMR-5566',
+            stateCouncil: 'Maharashtra Medical Council',
+            clinicName: 'Trivedi Hospital',
+            clinicAddress: '123 Health St, Bandra West',
+            city: 'Mumbai',
+            state: 'Maharashtra',
+            pincode: '400050',
+            phone: '9876543210',
+            email: 'dr.ridham@example.com',
+            specialty: 'Cardiologist'
+        },
+        patientId: 'PAT-002',
+        patientName: 'Suman Gupta',
+        patientAge: 32,
+        patientGender: 'Female',
+        diagnosis: 'Viral Fever',
+        medicines: [
+             { name: 'Paracetamol', dosage: '650mg', frequency: 'TDS', duration: '5 days', instructions: 'After food' },
+             { name: 'Azithromycin', dosage: '500mg', frequency: 'OD', duration: '3 days', instructions: 'Before food' }
+        ],
+        advice: 'Plenty of fluids. Rest.',
+        date: new Date(Date.now() - 86400000 * 2).toISOString(), // 2 days ago
+        status: 'DISPENSED',
+        pharmacyId: 'sup-1',
+        pharmacyName: 'Apollo Pharmacy',
+        digitalSignatureToken: 'SIG-MOCK-2'
+    }
+];
+
+// Seed Data to ensure ERP isn't empty on first load
+const INITIAL_SUPPLIERS: Supplier[] = [
+    { id: 'sup-1', name: 'Apollo Wholesale', contact: '9876543210', balance: -500, address: 'Mumbai, MH' },
+    { id: 'sup-2', name: 'MedPlus Distributors', contact: '9988776655', balance: 2500, address: 'Delhi, DL' }
 ];
 
 // --- Credentials ---
@@ -63,7 +141,7 @@ const local = {
     setUsers: (users: User[]) => localStorage.setItem('devx_users', JSON.stringify(users)),
     getRx: (): Prescription[] => {
         const s = localStorage.getItem('devx_prescriptions');
-        return s ? JSON.parse(s) : [];
+        return s ? JSON.parse(s) : INITIAL_RX; // Default to seed data
     },
     setRx: (rx: Prescription[]) => localStorage.setItem('devx_prescriptions', JSON.stringify(rx)),
     getPatients: (): Patient[] => {
@@ -75,7 +153,44 @@ const local = {
         const s = localStorage.getItem('devx_audit_logs');
         return s ? JSON.parse(s) : [];
     },
-    setAuditLogs: (logs: AuditLog[]) => localStorage.setItem('devx_audit_logs', JSON.stringify(logs))
+    setAuditLogs: (logs: AuditLog[]) => localStorage.setItem('devx_audit_logs', JSON.stringify(logs)),
+    // Templates
+    getTemplates: (): PrescriptionTemplate[] => {
+        const s = localStorage.getItem('devx_rx_templates');
+        return s ? JSON.parse(s) : [];
+    },
+    setTemplates: (templates: PrescriptionTemplate[]) => localStorage.setItem('devx_rx_templates', JSON.stringify(templates)),
+    
+    // ERP Entities
+    getSuppliers: (): Supplier[] => {
+        const s = localStorage.getItem('devx_suppliers');
+        return s ? JSON.parse(s) : INITIAL_SUPPLIERS;
+    },
+    setSuppliers: (data: Supplier[]) => localStorage.setItem('devx_suppliers', JSON.stringify(data)),
+    
+    getCustomers: (): Customer[] => {
+        const s = localStorage.getItem('devx_customers');
+        return s ? JSON.parse(s) : [];
+    },
+    setCustomers: (data: Customer[]) => localStorage.setItem('devx_customers', JSON.stringify(data)),
+    
+    getSales: (): Sale[] => {
+        const s = localStorage.getItem('devx_sales');
+        return s ? JSON.parse(s) : [];
+    },
+    setSales: (data: Sale[]) => localStorage.setItem('devx_sales', JSON.stringify(data)),
+
+    getSalesReturns: (): SalesReturn[] => {
+        const s = localStorage.getItem('devx_sales_returns');
+        return s ? JSON.parse(s) : [];
+    },
+    setSalesReturns: (data: SalesReturn[]) => localStorage.setItem('devx_sales_returns', JSON.stringify(data)),
+
+    getExpenses: (): Expense[] => {
+        const s = localStorage.getItem('devx_expenses');
+        return s ? JSON.parse(s) : [];
+    },
+    setExpenses: (data: Expense[]) => localStorage.setItem('devx_expenses', JSON.stringify(data))
 };
 
 // --- DB Service API ---
@@ -144,7 +259,7 @@ export const dbService = {
                 .limit(100);
 
             if (logsError) {
-                console.warn("SQL Logs Fetch Error (Check if 'audit_logs' table exists):", logsError.message);
+                console.warn("SQL Logs Fetch Error (If 'relation does not exist', run SUPABASE_SETUP.sql):", logsError.message);
             }
 
             if (!logsError && logsData) {
@@ -169,7 +284,6 @@ export const dbService = {
             }
 
             // 3. Merge and Deduplicate
-            // Prefer SQL logs if ID collision, though IDs should be unique
             const allLogs = [...sqlLogs, ...blobLogsData];
             const uniqueLogs = Array.from(new Map(allLogs.map(item => [item.id, item])).values());
             
@@ -178,7 +292,7 @@ export const dbService = {
             
             // Parse or Default
             const users = (userData && userData.data) ? userData.data : INITIAL_USERS;
-            const rx = (rxData && rxData.data) ? rxData.data : [];
+            const rx = (rxData && rxData.data) ? rxData.data : INITIAL_RX; // Default to seed if cloud empty
             const patients = (patientData && patientData.data) ? patientData.data : [];
 
             // If cloud is empty (first run), sync initial local defaults to cloud
@@ -207,11 +321,25 @@ export const dbService = {
     },
 
     async savePrescriptions(rx: Prescription[]): Promise<void> {
+        console.log("DB: Saving Prescriptions...", rx.length);
         if (!supabase) {
             local.setRx(rx);
+            console.log("DB: Saved to Local Storage");
             return;
         }
-        await supabase.from('prescriptions').upsert({ id: 'global_prescriptions', data: rx });
+        try {
+            const { error } = await supabase.from('prescriptions').upsert({ id: 'global_prescriptions', data: rx });
+            if (error) {
+                console.error("DB: Supabase Save Error", error);
+                throw error;
+            } else {
+                console.log("DB: Saved to Cloud Successfully");
+            }
+        } catch (e) {
+             console.error("DB: Critical Save Failure", e);
+             // Fallback to local to prevent data loss
+             local.setRx(rx);
+        }
     },
 
     async savePatients(patients: Patient[]): Promise<void> {
@@ -227,12 +355,15 @@ export const dbService = {
     },
 
     async logSecurityAction(actorId: string, action: string, details: string = ''): Promise<AuditLog> {
+        // Capture client-side timestamp immediately
+        const clientTimestamp = new Date().toISOString();
+        
         const log: AuditLog = {
             id: `log-${Date.now()}-${Math.random().toString(36).substring(2,9)}`,
             actorId,
             action,
             details,
-            timestamp: new Date().toISOString()
+            timestamp: clientTimestamp
         };
 
         if (!supabase) {
@@ -246,16 +377,16 @@ export const dbService = {
             const { error } = await supabase.from('audit_logs').insert({
                 actor_id: actorId,
                 action: action,
-                details: details
+                details: details,
+                created_at: clientTimestamp 
             });
             
             if (error) {
-                console.warn("SQL Insert failed (Table missing?):", error.message);
+                console.warn("SQL Insert failed. You likely need to run the SUPABASE_SETUP.sql script.", error.message);
                 throw error;
             }
 
         } catch (e) {
-            // Fallback: If SQL insert fails (e.g., RLS policy), save to blob storage
             try {
                 const { data: current } = await supabase
                     .from('system_logs')
@@ -264,7 +395,7 @@ export const dbService = {
                     .single();
                 
                 const existingLogs = current?.data || [];
-                const updatedLogs = [log, ...existingLogs].slice(0, 500); // Keep last 500 logs
+                const updatedLogs = [log, ...existingLogs].slice(0, 500); 
                 
                 await supabase.from('system_logs').upsert({
                     id: 'global_audit_logs',
@@ -272,7 +403,6 @@ export const dbService = {
                 });
             } catch (blobErr) {
                 console.error("Security Log Fallback Failed:", blobErr);
-                // Local storage backup
                 const logs = local.getAuditLogs();
                 local.setAuditLogs([log, ...logs]);
             }
@@ -309,5 +439,34 @@ export const dbService = {
             reader.onload = () => resolve(reader.result as string);
             reader.onerror = error => reject(error);
         });
-    }
+    },
+
+    // --- Template Management (Local storage for MVP) ---
+    getTemplates: (doctorId: string): PrescriptionTemplate[] => {
+        const allTemplates = local.getTemplates();
+        return allTemplates.filter(t => t.doctorId === doctorId);
+    },
+    
+    saveTemplate: (template: PrescriptionTemplate): void => {
+        const allTemplates = local.getTemplates();
+        local.setTemplates([...allTemplates, template]);
+    },
+
+    // --- ERP Helpers (Currently Local Storage for Speed) ---
+    // In production, these should map to Supabase tables just like Users/Prescriptions
+    
+    getSuppliers: (): Supplier[] => local.getSuppliers(),
+    saveSuppliers: (data: Supplier[]) => local.setSuppliers(data),
+    
+    getCustomers: (): Customer[] => local.getCustomers(),
+    saveCustomers: (data: Customer[]) => local.setCustomers(data),
+    
+    getSales: (): Sale[] => local.getSales(),
+    saveSales: (data: Sale[]) => local.setSales(data),
+
+    getSalesReturns: (): SalesReturn[] => local.getSalesReturns(),
+    saveSalesReturns: (data: SalesReturn[]) => local.setSalesReturns(data),
+
+    getExpenses: (): Expense[] => local.getExpenses(),
+    saveExpenses: (data: Expense[]) => local.setExpenses(data)
 };

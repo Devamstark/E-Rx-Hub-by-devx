@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { X, Printer, ShieldCheck, Database, FileText, Server, Lock, UserCog, Building2, Layout, BookOpen } from 'lucide-react';
+import { X, Printer, ShieldCheck, Database, FileText, Server, Lock, UserCog, Building2, Layout, BookOpen, Copy, Check } from 'lucide-react';
 
 interface DocumentationViewerProps {
   onClose: () => void;
@@ -8,9 +7,53 @@ interface DocumentationViewerProps {
 
 export const DocumentationViewer: React.FC<DocumentationViewerProps> = ({ onClose }) => {
   const [activeDoc, setActiveDoc] = useState<'TECH' | 'COMPLIANCE' | 'DOCTOR' | 'PHARMACY' | 'MVP'>('MVP');
+  const [copied, setCopied] = useState(false);
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const copySQL = () => {
+    const sql = `-- ==========================================
+-- DEVXWORLD E-RX HUB: DATABASE SETUP SCRIPT
+-- ==========================================
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  actor_id TEXT NOT NULL,
+  action TEXT NOT NULL,
+  details TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS users ( id TEXT PRIMARY KEY, data JSONB );
+CREATE TABLE IF NOT EXISTS prescriptions ( id TEXT PRIMARY KEY, data JSONB );
+CREATE TABLE IF NOT EXISTS patients ( id TEXT PRIMARY KEY, data JSONB );
+CREATE TABLE IF NOT EXISTS system_logs ( id TEXT PRIMARY KEY, data JSONB );
+
+ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE prescriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE patients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE system_logs ENABLE ROW LEVEL SECURITY;
+
+-- Permissive Policies
+DROP POLICY IF EXISTS "Public Audit Read" ON audit_logs; CREATE POLICY "Public Audit Read" ON audit_logs FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Public Audit Insert" ON audit_logs; CREATE POLICY "Public Audit Insert" ON audit_logs FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Public Users Access" ON users; CREATE POLICY "Public Users Access" ON users FOR ALL USING (true);
+DROP POLICY IF EXISTS "Public Rx Access" ON prescriptions; CREATE POLICY "Public Rx Access" ON prescriptions FOR ALL USING (true);
+DROP POLICY IF EXISTS "Public Patient Access" ON patients; CREATE POLICY "Public Patient Access" ON patients FOR ALL USING (true);
+DROP POLICY IF EXISTS "Public System Logs Access" ON system_logs; CREATE POLICY "Public System Logs Access" ON system_logs FOR ALL USING (true);
+
+-- Init Data
+INSERT INTO users (id, data) VALUES ('global_users', '[]'::jsonb) ON CONFLICT (id) DO NOTHING;
+INSERT INTO prescriptions (id, data) VALUES ('global_prescriptions', '[]'::jsonb) ON CONFLICT (id) DO NOTHING;
+INSERT INTO patients (id, data) VALUES ('global_patients', '[]'::jsonb) ON CONFLICT (id) DO NOTHING;
+INSERT INTO system_logs (id, data) VALUES ('global_audit_logs', '[]'::jsonb) ON CONFLICT (id) DO NOTHING;`;
+
+    navigator.clipboard.writeText(sql);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const DevXLogo = () => (
@@ -139,11 +182,48 @@ export const DocumentationViewer: React.FC<DocumentationViewerProps> = ({ onClos
                 - Vite Build Tool
             </div>
 
+            <h3 className="text-lg font-bold text-slate-800">Database Setup (SQL)</h3>
+            <p className="text-sm text-slate-600 mb-2">
+                Run this script in the Supabase SQL Editor to initialize required tables (Users, Audit Logs, Prescriptions):
+            </p>
+            <div className="relative mb-6">
+                <pre className="bg-slate-900 text-slate-50 p-4 rounded-md overflow-x-auto text-[10px] font-mono leading-relaxed h-48">
+                    {`-- DEVXWORLD E-RX HUB SETUP
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  actor_id TEXT NOT NULL,
+  action TEXT NOT NULL,
+  details TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+CREATE TABLE IF NOT EXISTS users ( id TEXT PRIMARY KEY, data JSONB );
+CREATE TABLE IF NOT EXISTS prescriptions ( id TEXT PRIMARY KEY, data JSONB );
+CREATE TABLE IF NOT EXISTS patients ( id TEXT PRIMARY KEY, data JSONB );
+CREATE TABLE IF NOT EXISTS system_logs ( id TEXT PRIMARY KEY, data JSONB );
+
+-- Policies
+ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public Audit Read" ON audit_logs; CREATE POLICY "Public Audit Read" ON audit_logs FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Public Audit Insert" ON audit_logs; CREATE POLICY "Public Audit Insert" ON audit_logs FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Public Access" ON users; CREATE POLICY "Public Access" ON users FOR ALL USING (true);
+-- (See full SUPABASE_SETUP.sql for all tables)
+
+-- Init Data
+INSERT INTO users (id, data) VALUES ('global_users', '[]'::jsonb) ON CONFLICT (id) DO NOTHING;`}
+                </pre>
+                <button 
+                    onClick={copySQL}
+                    className="absolute top-2 right-2 bg-white text-slate-900 px-3 py-1.5 rounded text-xs font-bold shadow hover:bg-indigo-50 flex items-center"
+                >
+                    {copied ? <Check className="w-3 h-3 mr-1 text-green-600"/> : <Copy className="w-3 h-3 mr-1"/>}
+                    {copied ? "Copied!" : "Copy Full Script"}
+                </button>
+            </div>
+
             <h3 className="text-lg font-bold text-slate-800">Key Modules</h3>
             <ul className="list-disc pl-5 text-sm text-slate-700 space-y-2">
                 <li><strong>db.ts:</strong> Abstracted Data Layer. Handles switching between Cloud and Local storage transparently.</li>
                 <li><strong>geminiService.ts:</strong> AI Logic. Sends clinical context to LLM for safety analysis.</li>
-                <li><strong>DocumentationViewer.tsx:</strong> The component rendering this very document.</li>
             </ul>
           </section>
         )}

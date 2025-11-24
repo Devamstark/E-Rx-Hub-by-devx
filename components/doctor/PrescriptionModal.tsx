@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Prescription } from '../../types';
-import { X, Printer, CheckCircle, FileText, ClipboardList, Share2, AlertOctagon } from 'lucide-react';
+import { X, Printer, CheckCircle, FileText, ClipboardList, Share2, AlertOctagon, Repeat, Calendar } from 'lucide-react';
 import ReactDOMServer from 'react-dom/server';
 import { PrintLayout } from '../ui/PrintLayout';
 
@@ -69,6 +69,8 @@ Dr. ${docName} (${docQual}${docSpecialty ? ' - ' + docSpecialty : ''})
 *Medicines:*
 ${prescription.medicines.map(m => `- ${m.name} (${m.dosage}) | ${m.frequency}`).join('\n')}
 
+*Follow-up:* ${prescription.followUpDate || 'PRN'}
+
 *Link:* https://devxworld.erx/track/${prescription.id}
     `.trim();
 
@@ -94,7 +96,7 @@ ${prescription.medicines.map(m => `- ${m.name} (${m.dosage}) | ${m.frequency}`).
                 className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm font-medium flex items-center transition-colors shadow-sm border border-green-500"
                 title="Share via WhatsApp"
             >
-                <Share2 className="w-4 h-4 mr-2" /> WhatsApp
+                <Share2 className="w-4 h-4 mr-2" /> Share
             </button>
             <button 
                 onClick={handlePrint}
@@ -181,13 +183,23 @@ ${prescription.medicines.map(m => `- ${m.name} (${m.dosage}) | ${m.frequency}`).
             </div>
           </div>
           
-          {/* Advice */}
-          {prescription.advice && (
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-              <h4 className="text-xs font-bold text-blue-800 uppercase mb-1">Additional Advice</h4>
-              <p className="text-sm text-blue-900">{prescription.advice}</p>
-            </div>
-          )}
+          {/* Advice & Plan */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               {prescription.advice && (
+                <div className="sm:col-span-2 bg-blue-50 p-4 rounded-lg border border-blue-100">
+                  <h4 className="text-xs font-bold text-blue-800 uppercase mb-1">Additional Advice</h4>
+                  <p className="text-sm text-blue-900">{prescription.advice}</p>
+                </div>
+              )}
+              <div className="bg-slate-50 p-3 rounded border border-slate-100 flex justify-between items-center">
+                   <span className="text-xs font-bold text-slate-500 uppercase flex items-center"><Repeat className="w-3 h-3 mr-1"/> Refills</span>
+                   <span className="font-bold text-slate-900">{prescription.refills || 0}</span>
+              </div>
+              <div className="bg-slate-50 p-3 rounded border border-slate-100 flex justify-between items-center">
+                   <span className="text-xs font-bold text-slate-500 uppercase flex items-center"><Calendar className="w-3 h-3 mr-1"/> Follow-up</span>
+                   <span className="font-bold text-slate-900">{prescription.followUpDate ? new Date(prescription.followUpDate).toLocaleDateString() : 'PRN'}</span>
+              </div>
+          </div>
 
           {/* Footer Info */}
           <div className="text-center sm:text-left pt-4 border-t border-slate-100">
@@ -203,7 +215,7 @@ ${prescription.medicines.map(m => `- ${m.name} (${m.dosage}) | ${m.frequency}`).
            
            {isPharmacy && onDispense && (
                 <div>
-                    {prescription.status === 'ISSUED' ? (
+                    {prescription.status === 'SENT_TO_PHARMACY' ? (
                         <button 
                         onClick={() => { onDispense(prescription.id); onClose(); }}
                         className="bg-green-600 text-white px-6 py-2 rounded-md font-bold shadow hover:bg-green-700 transition-colors flex items-center"

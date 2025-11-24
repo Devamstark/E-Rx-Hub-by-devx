@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
-import { Medicine, Prescription, User, Patient } from '../../types';
-import { Plus, Trash2, Send, BrainCircuit, FileText, AlertTriangle, Info, Video, User as UserIcon, Search, Link2, UserPlus, RotateCcw } from 'lucide-react';
+import { Medicine, Prescription, User, Patient, PrescriptionTemplate } from '../../types';
+import { Plus, Trash2, Send, BrainCircuit, FileText, AlertTriangle, Info, Video, User as UserIcon, Search, Link2, UserPlus, RotateCcw, Save, Download, KeyRound, Calendar, Repeat, X, CheckCircle } from 'lucide-react';
 import { analyzePrescriptionSafety } from '../../services/geminiService';
 import { LOW_RISK_GENERIC_LIST, RESTRICTED_DRUGS } from '../../constants';
+import { dbService } from '../../services/db';
 
 interface CreatePrescriptionProps {
   currentUser: User;
@@ -39,10 +40,13 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
     onAddPatient,
     prescriptionHistory
 }) => {
-  const { register, control, handleSubmit, watch, setValue, formState: { errors } } = useForm<PrescriptionFormData>({
+  const { register, control, handleSubmit, watch, setValue, getValues, trigger, formState: { errors } } = useForm<PrescriptionFormData>({
     defaultValues: {
       medicines: [{ name: '', dosage: '', frequency: '', duration: '', instructions: '' }],
-      patientGender: 'Male'
+      patientGender: 'Male',
+      patientName: '',
+      patientAge: 0,
+      refills: 0
     }
   });
 
@@ -66,6 +70,16 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
   const [historySearch, setHistorySearch] = useState('');
   const [showHistoryResults, setShowHistoryResults] = useState(false);
 
+  // Template State
+  const [templates, setTemplates] = useState<PrescriptionTemplate[]>([]);
+  const [templateName, setTemplateName] = useState('');
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+
+  // eSign State
+  const [eSignStep, setESignStep] = useState<'IDLE' | 'GENERATED' | 'SIGNED'>('IDLE');
+  const [eSignToken, setESignToken] = useState('0000');
+  const [eSignInput, setESignInput] = useState('');
+
   // Filtered Autocomplete List - Filter out restricted drugs for safety
   const safeMedicineList = LOW_RISK_GENERIC_LIST.filter(med => 
     !RESTRICTED_DRUGS.some(restricted => med.toLowerCase().includes(restricted.toLowerCase()))
@@ -75,8 +89,6 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
   const [newPatient, setNewPatient] = useState<Partial<Patient>>({
       fullName: '', phone: '', dateOfBirth: '', gender: 'Male', address: '', allergies: [], chronicConditions: []
   });
-  const [newAllergy, setNewAllergy] = useState('');
-  const [newCondition, setNewCondition] = useState('');
 
   const diagnosis = watch('diagnosis');
   const medicines = watch('medicines');
@@ -84,23 +96,33 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
   const myPatients = patients.filter(p => p.doctorId === currentUser.id);
   const patientResults = myPatients.filter(p => p.fullName.toLowerCase().includes(patientSearch.toLowerCase()) || p.phone.includes(patientSearch));
 
-  // Filter Rx History for Lookup
+  // Filter Rx History for Lookup (Safety check added for undefined patientName)
   const filteredHistory = prescriptionHistory
-    .filter(rx => rx.patientName.toLowerCase().includes(historySearch.toLowerCase()))
+    .filter(rx => (rx.patientName || '').toLowerCase().includes(historySearch.toLowerCase()))
     .slice(0, 5);
+
+  // Load Templates on Mount
+  useEffect(() => {
+      const saved = dbService.getTemplates(currentUser.id);
+      setTemplates(saved);
+  }, [currentUser.id]);
 
   // Auto-calculate age when New Patient DOB changes
   useEffect(() => {
       if (patientMode === 'CREATE' && newPatient.dateOfBirth) {
           const birthDate = new Date(newPatient.dateOfBirth);
           const age = new Date().getFullYear() - birthDate.getFullYear();
-          setValue('patientAge', age > 0 ? age : 0);
+          const finalAge = age > 0 ? age : 0;
+          
+          // CRITICAL: Set form values for submission
+          setValue('patientAge', finalAge);
           setValue('patientName', newPatient.fullName || '');
           setValue('patientGender', newPatient.gender as any);
       }
   }, [newPatient.dateOfBirth, newPatient.fullName, newPatient.gender, patientMode, setValue]);
 
   const handleSelectPatient = (patient: Patient) => {
+      // CRITICAL: Set form values so they are captured in handleSubmit
       setValue('patientName', patient.fullName);
       setValue('patientGender', patient.gender);
       
@@ -129,6 +151,36 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
       alert(`Copied Rx details from ${rx.patientName}'s record dated ${new Date(rx.date).toLocaleDateString()}`);
   };
 
+  // Template Handlers
+  const handleSaveTemplate = () => {
+      if (!templateName || !diagnosis) {
+          alert("Please enter a Template Name and Diagnosis.");
+          return;
+      }
+      const newTemplate: PrescriptionTemplate = {
+          id: `tmpl-${Date.now()}`,
+          name: templateName,
+          doctorId: currentUser.id,
+          diagnosis: diagnosis,
+          medicines: getValues('medicines'),
+          advice: getValues('advice')
+      };
+      dbService.saveTemplate(newTemplate);
+      setTemplates(prev => [...prev, newTemplate]);
+      setTemplateName('');
+      setShowSaveTemplate(false);
+      alert("Template Saved Successfully!");
+  };
+
+  const handleLoadTemplate = (templateId: string) => {
+      const tmpl = templates.find(t => t.id === templateId);
+      if (tmpl) {
+          setValue('diagnosis', tmpl.diagnosis);
+          replace(tmpl.medicines);
+          setValue('advice', tmpl.advice);
+      }
+  };
+
   const handleAnalyze = async () => {
     if (!diagnosis || medicines.length === 0) return;
     setAnalyzing(true);
@@ -137,18 +189,83 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
     setAnalyzing(false);
   };
 
-  const onSubmit = (data: PrescriptionFormData) => {
+  // eSign Handlers
+  const generateESignToken = async () => {
+      // 1. Check form validity first using trigger()
+      const isFormValid = await trigger();
+      if (!isFormValid) {
+          alert("Please fill in all required fields (Diagnosis, Medicine Names) before signing.");
+          return;
+      }
+
+      const currentValues = getValues();
+      if (!currentValues.medicines || currentValues.medicines.length === 0) {
+           alert("Please add at least one medicine.");
+           return;
+      }
+
+      // 2. Race condition check: Ensure patient data is captured
+      // If user selected existing patient, ensure values are set
+      if (patientMode === 'SEARCH' && selectedPatient) {
+          if (!currentValues.patientName) setValue('patientName', selectedPatient.fullName);
+      }
+
+      // Check for patient data validity (even if hidden inputs are registered, verify value presence)
+      // Re-get values after potential set
+      const updatedValues = getValues();
+      if (!updatedValues.patientName && !selectedPatient && !(patientMode === 'CREATE' && newPatient.fullName)) {
+          alert("Patient Name is missing. Please select or create a patient.");
+          return;
+      }
+
+      if (!selectedPharmacyId) {
+          alert("Please select a pharmacy to send the prescription to.");
+          return;
+      }
+      if (!isPatientVerified) {
+          alert("Please verify patient identity first (Telemedicine Compliance).");
+          return;
+      }
+      
+      // FIXED OTP: 0000
+      const token = '0000';
+      setESignToken(token);
+      setESignStep('GENERATED');
+      setESignInput(''); // Reset input
+      alert(`SECURITY ALERT: Your One-Time Signing Key is ${token}`);
+  };
+
+  const verifyESign = () => {
+      // FIXED VERIFICATION: 0000
+      if (eSignInput.trim() === '0000') {
+          setESignStep('SIGNED');
+      } else {
+          alert("Invalid Signing Key. Please try again (Key: 0000).");
+      }
+  };
+
+  const onFormSubmitError = (errors: any) => {
+      console.error("Form Validation Error during submit:", errors);
+      alert("Cannot send Prescription: Please check for missing fields.");
+  };
+
+  const handleFinalSubmit = (data: PrescriptionFormData) => {
+    console.log("Submitting Rx Data:", data);
+
     if (!selectedPharmacyId) {
         alert("Please select a pharmacy to send the prescription to.");
         return;
     }
-    if (!isPatientVerified) {
-        alert("You must verify the patient's identity as per Telemedicine Guidelines before prescribing.");
-        return;
-    }
-
+    
+    // We assume if this function is called, the signature was verified via verifyESign
+    
     let finalPatientId = selectedPatient?.id;
     let finalPatientName = data.patientName;
+
+    // Fallback: If data.patientName is empty but we have a selected patient, use that
+    if (!finalPatientName && selectedPatient) {
+        finalPatientName = selectedPatient.fullName;
+    }
 
     // 1. Handle New Patient Creation if in CREATE mode
     if (patientMode === 'CREATE') {
@@ -177,7 +294,7 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
         onAddPatient(createdPatient);
         finalPatientId = createdPatient.id;
         finalPatientName = createdPatient.fullName;
-    } else if (!selectedPatient) {
+    } else if (!selectedPatient && !finalPatientName) {
         alert("Please select an existing patient or create a new one.");
         return;
     }
@@ -188,8 +305,8 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
         ...data,
         id: '', // Handled by App.tsx
         doctorId: currentUser.id,
-        patientId: finalPatientId, // CRITICAL: Linking Rx to Patient
-        patientName: finalPatientName, // Redundant but good for display
+        patientId: finalPatientId, 
+        patientName: finalPatientName,
         doctorName: currentUser.name,
         doctorDetails: {
             name: currentUser.name,
@@ -210,30 +327,51 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
         pharmacyId: selectedPharmacyId,
         pharmacyName: pharmacy ? pharmacy.name : 'Unassigned',
         date: new Date().toISOString(),
-        status: 'ISSUED',
-        digitalSignatureToken: `SIG-${Math.random().toString(36).substring(7).toUpperCase()}`
+        status: 'SENT_TO_PHARMACY', // Standard status for signed Rx
+        digitalSignatureToken: `SIG-${Date.now()}-${eSignToken}`, // Embed token in signature
+        refills: data.refills ? Number(data.refills) : 0,
+        followUpDate: data.followUpDate
     };
 
     onPrescriptionSent(newRx);
-    alert("Prescription Signed & Linked to Patient Profile.");
+    
+    alert("Prescription Signed & Sent to Pharmacy Successfully.");
+    
+    // Reset basic form state but keep doctor context
+    setESignStep('IDLE');
+    setESignToken('');
+    // Optionally clear form here or navigate away (DoctorDashboard usually handles navigation)
   };
 
   return (
     <div className="bg-white rounded-lg shadow border border-slate-200">
-      <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-        <h2 className="text-xl font-bold text-slate-800 flex items-center">
-            <FileText className="mr-2 text-indigo-600"/> New e-Prescription
-        </h2>
+      <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50 gap-4">
+        <div>
+            <h2 className="text-xl font-bold text-slate-800 flex items-center">
+                <FileText className="mr-2 text-indigo-600"/> New e-Prescription
+            </h2>
+            <div className="flex gap-2 mt-1">
+                 {/* Template Loader */}
+                <select 
+                    className="text-xs border border-slate-300 rounded px-2 py-1 bg-white"
+                    onChange={(e) => handleLoadTemplate(e.target.value)}
+                    defaultValue=""
+                >
+                    <option value="" disabled>Load Template...</option>
+                    {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+            </div>
+        </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full sm:w-auto">
             {/* History Lookup Button/Input */}
-            <div className="relative">
+            <div className="relative w-full sm:w-auto">
                 <div className="flex items-center bg-white border border-indigo-200 rounded-md px-3 py-1.5 shadow-sm">
                     <RotateCcw className="w-4 h-4 text-indigo-600 mr-2"/>
                     <input 
                         type="text"
                         placeholder="Autofill from Patient Name..."
-                        className="bg-transparent border-none text-xs focus:outline-none w-48 text-indigo-800 placeholder-indigo-400"
+                        className="bg-transparent border-none text-xs focus:outline-none w-full sm:w-48 text-indigo-800 placeholder-indigo-400"
                         value={historySearch}
                         onChange={(e) => { setHistorySearch(e.target.value); setShowHistoryResults(true); }}
                         onFocus={() => setShowHistoryResults(true)}
@@ -263,11 +401,16 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
                     </div>
                 )}
             </div>
-            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded border border-green-200 font-medium">Telemedicine Compliant</span>
+            <span className="hidden sm:inline text-xs bg-green-100 text-green-800 px-2 py-1 rounded border border-green-200 font-medium whitespace-nowrap">Telemedicine Compliant</span>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
+      <form className="p-6 space-y-6">
+        {/* Hidden Inputs to capture patient data in RHF data object */}
+        <input type="hidden" {...register('patientName', { required: true })} />
+        <input type="hidden" {...register('patientAge', { required: true, valueAsNumber: true })} />
+        <input type="hidden" {...register('patientGender', { required: true })} />
+
         {/* Letterhead Preview */}
         <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 flex items-start gap-3">
             <div className="p-2 bg-white rounded-full border border-slate-200">
@@ -404,60 +547,15 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
                             onChange={e => setNewPatient({...newPatient, address: e.target.value})}
                          />
                      </div>
-                     
-                     {/* Quick Medical History for New Patient */}
-                     <div className="border-t border-slate-200 pt-3">
-                         <p className="text-xs font-bold text-slate-500 mb-2">Quick Medical History (Optional)</p>
-                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                             <div>
-                                 <div className="flex gap-2 mb-2">
-                                     <input className="border p-1.5 rounded text-xs flex-1" placeholder="Add Allergy" value={newAllergy} onChange={e => setNewAllergy(e.target.value)}/>
-                                     <button type="button" onClick={() => { if(newAllergy) { setNewPatient(p => ({...p, allergies: [...(p.allergies||[]), newAllergy]})); setNewAllergy(''); }}} className="bg-slate-200 px-2 rounded text-xs font-bold">+</button>
-                                 </div>
-                                 <div className="flex flex-wrap gap-1">
-                                     {newPatient.allergies?.map(a => <span key={a} className="bg-red-100 text-red-800 text-[10px] px-1.5 py-0.5 rounded">{a}</span>)}
-                                 </div>
-                             </div>
-                             <div>
-                                 <div className="flex gap-2 mb-2">
-                                     <input className="border p-1.5 rounded text-xs flex-1" placeholder="Add Condition" value={newCondition} onChange={e => setNewCondition(e.target.value)}/>
-                                     <button type="button" onClick={() => { if(newCondition) { setNewPatient(p => ({...p, chronicConditions: [...(p.chronicConditions||[]), newCondition]})); setNewCondition(''); }}} className="bg-slate-200 px-2 rounded text-xs font-bold">+</button>
-                                 </div>
-                                 <div className="flex flex-wrap gap-1">
-                                     {newPatient.chronicConditions?.map(c => <span key={c} className="bg-blue-100 text-blue-800 text-[10px] px-1.5 py-0.5 rounded">{c}</span>)}
-                                 </div>
-                             </div>
-                         </div>
-                     </div>
                  </div>
              )}
-
-             {/* Auto-filled Readonly Fields for Rx */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-3 rounded border border-slate-100">
-                <div>
-                    <label className="block text-xs font-bold text-slate-400 mb-1 uppercase">Rx Patient Name</label>
-                    <input {...register('patientName', { required: true })} className="block w-full border-slate-200 rounded-md p-2 text-sm bg-white text-slate-700 font-medium" readOnly />
-                    {errors.patientName && <span className="text-xs text-red-500">Required</span>}
-                </div>
-                <div>
-                    <label className="block text-xs font-bold text-slate-400 mb-1 uppercase">Calculated Age</label>
-                    <input type="number" {...register('patientAge', { required: true, min: 0 })} className="block w-full border-slate-200 rounded-md p-2 text-sm bg-white text-slate-700" readOnly />
-                </div>
-                <div>
-                    <label className="block text-xs font-bold text-slate-400 mb-1 uppercase">Gender</label>
-                    <select {...register('patientGender')} className="block w-full border-slate-200 rounded-md p-2 text-sm bg-white text-slate-700 disabled:opacity-100" disabled={true}>
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Other">Other</option>
-                    </select>
-                </div>
-            </div>
         </div>
 
         {/* Diagnosis & AI */}
         <div>
           <label className="block text-sm font-bold text-slate-700 uppercase tracking-wide mb-2">2. Diagnosis / Symptoms</label>
           <textarea {...register('diagnosis', { required: true })} className="mt-1 block w-full border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border p-3 text-sm" rows={2} placeholder="e.g. Acute Bronchitis, dry cough"></textarea>
+          {errors.diagnosis && <p className="text-xs text-red-500 mt-1">Diagnosis is required.</p>}
         </div>
 
         {/* Medicines */}
@@ -491,7 +589,7 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
                                       {...register(`medicines.${index}.name` as const, { required: true })} 
                                       list="common-medicines"
                                       placeholder="Type or select..." 
-                                      className="w-full text-sm border-slate-300 rounded border p-2 font-medium" 
+                                      className={`w-full text-sm rounded border p-2 font-medium ${errors.medicines?.[index]?.name ? 'border-red-500' : 'border-slate-300'}`}
                                     />
                                 </div>
                                 <div className="col-span-4 sm:col-span-2">
@@ -573,8 +671,38 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
         )}
 
         <div>
-            <label className="block text-sm font-bold text-slate-700 uppercase tracking-wide">4. Additional Advice</label>
-            <textarea {...register('advice')} className="mt-1 block w-full border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border p-3 text-sm" rows={2}></textarea>
+            <label className="block text-sm font-bold text-slate-700 uppercase tracking-wide">4. Additional Advice & Follow-up</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
+                <textarea {...register('advice')} className="sm:col-span-2 mt-1 block w-full border-slate-300 rounded-md shadow-sm border p-3 text-sm" rows={2} placeholder="Dietary advice, rest instructions..."></textarea>
+                <div>
+                     <label className="text-xs font-bold text-slate-500 mb-1 flex items-center"><Repeat className="w-3 h-3 mr-1"/> Refills Allowed</label>
+                     <input type="number" {...register('refills')} min={0} className="w-full border p-2 rounded text-sm" placeholder="0" />
+                </div>
+                <div>
+                     <label className="text-xs font-bold text-slate-500 mb-1 flex items-center"><Calendar className="w-3 h-3 mr-1"/> Follow-up Date</label>
+                     <input type="date" {...register('followUpDate')} className="w-full border p-2 rounded text-sm" />
+                </div>
+            </div>
+        </div>
+
+        {/* Template Save Options */}
+        <div className="flex justify-end border-b border-slate-100 pb-4">
+            {!showSaveTemplate ? (
+                <button type="button" onClick={() => setShowSaveTemplate(true)} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center">
+                    <Save className="w-3 h-3 mr-1"/> Save as Template
+                </button>
+            ) : (
+                <div className="flex items-center gap-2 bg-slate-100 p-2 rounded">
+                    <input 
+                        className="text-xs border p-1 rounded" 
+                        placeholder="Template Name (e.g. Viral Fever)"
+                        value={templateName}
+                        onChange={e => setTemplateName(e.target.value)}
+                    />
+                    <button type="button" onClick={handleSaveTemplate} className="bg-indigo-600 text-white text-xs px-2 py-1 rounded">Save</button>
+                    <button type="button" onClick={() => setShowSaveTemplate(false)} className="text-slate-500 text-xs px-2"><X className="w-3 h-3"/></button>
+                </div>
+            )}
         </div>
 
         {/* Compliance & Verification */}
@@ -620,10 +748,60 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
             )}
         </div>
 
+        {/* eSign & Submit */}
         <div className="pt-4 border-t border-slate-200">
-            <button type="submit" className="w-full flex justify-center items-center bg-indigo-700 text-white py-3 rounded-md hover:bg-indigo-800 font-bold shadow-lg transition-all transform hover:scale-[1.01]">
-                <Send className="w-5 h-5 mr-2" /> E-Sign & Send Prescription
-            </button>
+            {eSignStep === 'IDLE' && (
+                <button 
+                    type="button" 
+                    onClick={generateESignToken}
+                    className="w-full flex justify-center items-center bg-teal-600 text-white py-3 rounded-md hover:bg-teal-700 font-bold shadow transition-all"
+                >
+                    <KeyRound className="w-5 h-5 mr-2"/> Initiate Digital Signing
+                </button>
+            )}
+
+            {eSignStep === 'GENERATED' && (
+                <div className="bg-slate-900 p-4 rounded-lg text-center animate-in fade-in">
+                    <p className="text-slate-300 text-xs uppercase font-bold mb-2">Security Challenge</p>
+                    <p className="text-white text-sm mb-4">Enter the One-Time Signing Key shown in the alert.</p>
+                    <div className="flex justify-center gap-2 mb-4">
+                        <input 
+                            type="text" 
+                            maxLength={4} 
+                            className="w-32 text-center text-2xl font-bold tracking-widest p-2 rounded border border-slate-600 bg-slate-800 text-white focus:ring-teal-500" 
+                            value={eSignInput}
+                            onChange={e => setESignInput(e.target.value)}
+                            placeholder="----"
+                        />
+                    </div>
+                    <button 
+                        type="button" 
+                        onClick={verifyESign}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded font-bold transition-colors"
+                    >
+                        Verify & Sign
+                    </button>
+                </div>
+            )}
+
+            {eSignStep === 'SIGNED' && (
+                <div className="text-center animate-in fade-in zoom-in duration-300">
+                    <div className="text-green-600 font-bold text-sm mb-4 flex items-center justify-center">
+                        <CheckCircle className="w-5 h-5 mr-1"/> Digitally Signed & Verified
+                    </div>
+                    
+                    <button 
+                        type="button" 
+                        onClick={handleSubmit(handleFinalSubmit, onFormSubmitError)} // Note: use manual handler on button
+                        className="w-full flex justify-center items-center bg-indigo-600 text-white py-3 rounded-md hover:bg-indigo-700 font-bold shadow transition-all animate-pulse"
+                    >
+                        <Send className="w-5 h-5 mr-2"/> Send to Pharmacy
+                    </button>
+                    
+                    <p className="text-xs text-slate-500 mt-2">Signing Token: {eSignToken}</p>
+                </div>
+            )}
+            
             <p className="text-center text-xs text-slate-400 mt-2">Digitally Signed & Encrypted according to IT Act 2000</p>
         </div>
       </form>

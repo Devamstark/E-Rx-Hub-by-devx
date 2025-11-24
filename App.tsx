@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Layout } from './components/ui/Layout';
 import { Login } from './components/auth/Login';
 import { DoctorDashboard } from './components/doctor/DoctorDashboard';
 import { PharmacyDashboard } from './components/pharmacy/PharmacyDashboard';
 import { AdminDashboard } from './components/admin/AdminDashboard';
-import { User, UserRole, VerificationStatus, DoctorProfile, Prescription, Patient, AuditLog } from './types';
+import { User, UserRole, VerificationStatus, DoctorProfile, Prescription, Patient, AuditLog, SalesReturn } from './types';
 import { dbService } from './services/db';
 import { Loader2, Clock, LogOut } from 'lucide-react';
 import { DocumentationViewer } from './components/ui/DocumentationViewer';
@@ -23,6 +24,7 @@ function App() {
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [salesReturns, setSalesReturns] = useState<SalesReturn[]>([]);
 
   // Session Management State
   const [showSessionWarning, setShowSessionWarning] = useState(false);
@@ -82,6 +84,7 @@ function App() {
           setPrescriptions(rx);
           setPatients(loadedPatients);
           setAuditLogs(loadedLogs);
+          setSalesReturns(dbService.getSalesReturns()); // Load returns
 
           // Restore Session
           try {
@@ -127,6 +130,12 @@ function App() {
           dbService.savePatients(patients);
       }
   }, [patients, isLoaded]);
+
+  useEffect(() => {
+      if (isLoaded) {
+          dbService.saveSalesReturns(salesReturns);
+      }
+  }, [salesReturns, isLoaded]);
 
   // Sync currentUser state with registeredUsers updates
   useEffect(() => {
@@ -186,13 +195,35 @@ function App() {
   };
 
   const handleCreatePrescription = (rxData: Prescription) => {
+    console.log("App: Creating Prescription...", rxData);
     const currentCount = prescriptions.length + 1;
     const sequentialId = currentCount.toString().padStart(9, '0');
+    
+    // Check if patient info is missing and try to patch it (redundancy check)
+    let finalPatientName = rxData.patientName;
+    if (!finalPatientName && rxData.patientId) {
+         const p = patients.find(pat => pat.id === rxData.patientId);
+         if (p) finalPatientName = p.fullName;
+    }
+    if (!finalPatientName) finalPatientName = 'Unknown Patient';
+
     const newRxWithId: Prescription = {
         ...rxData,
+        patientName: finalPatientName,
         id: sequentialId
     };
+    
+    // Ensure we are adding to state, which triggers useEffect -> savePrescriptions
     setPrescriptions(prev => [newRxWithId, ...prev]);
+
+    // Log Security Action with Correct ID
+    if (currentUser) {
+        dbService.logSecurityAction(
+            currentUser.id, 
+            'RX_CREATED', 
+            `Rx #${sequentialId} SENT_TO_PHARMACY (${newRxWithId.pharmacyName}) for ${newRxWithId.patientName}`
+        );
+    }
   };
 
   const handleDispensePrescription = (rxId: string, patientId?: string) => {
@@ -299,6 +330,8 @@ function App() {
                     patients={patients}
                     onAddPatient={handleAddPatient}
                     onUpdatePatient={handleUpdatePatient}
+                    salesReturns={salesReturns}
+                    onAddSalesReturn={(ret) => setSalesReturns(prev => [ret, ...prev])}
                 />
             )}
             {currentUser.role === UserRole.ADMIN && (

@@ -25,6 +25,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onRegister }) => {
   const [otp, setOtp] = useState('');
   const [regName, setRegName] = useState('');
   const [regLicense, setRegLicense] = useState('');
+  const [regGstin, setRegGstin] = useState(''); // GSTIN State
   const [regState, setRegState] = useState('');
   const [agreeConsent, setAgreeConsent] = useState(false);
   
@@ -47,6 +48,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onRegister }) => {
     setOtp('');
     setRegName('');
     setRegLicense('');
+    setRegGstin('');
     setRegState('');
     setRegClinicName('');
     setRegAddress('');
@@ -147,9 +149,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onRegister }) => {
         licenseNumber: regLicense,
         state: regState,
         documents: documents,
+        gstin: regGstin, // Added
         
         // Extended Fields
-        clinicName: regClinicName,
+        clinicName: selectedRole === UserRole.DOCTOR ? regClinicName : regName, // Pharmacy Name IS clinicName
         clinicAddress: regAddress,
         phone: regPhone,
         fax: regFax,
@@ -468,17 +471,29 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onRegister }) => {
 
                 {/* PHARMACY SPECIFIC */}
                 {selectedRole === UserRole.PHARMACY && (
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700">License No (Form 20/21) <span className="text-red-500">*</span></label>
-                        <input
-                            type="text"
-                            required
-                            value={regLicense}
-                            onChange={(e) => setRegLicense(e.target.value)}
-                            className="block w-full px-3 py-2 border border-slate-300 rounded-md sm:text-sm"
-                            placeholder="e.g. DL-20B-12345"
-                        />
-                    </div>
+                    <>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700">License No (Form 20/21) <span className="text-red-500">*</span></label>
+                            <input
+                                type="text"
+                                required
+                                value={regLicense}
+                                onChange={(e) => setRegLicense(e.target.value)}
+                                className="block w-full px-3 py-2 border border-slate-300 rounded-md sm:text-sm"
+                                placeholder="e.g. DL-20B-12345"
+                            />
+                        </div>
+                         <div>
+                            <label className="block text-sm font-medium text-slate-700">GSTIN (Optional)</label>
+                            <input
+                                type="text"
+                                value={regGstin}
+                                onChange={(e) => setRegGstin(e.target.value)}
+                                className="block w-full px-3 py-2 border border-slate-300 rounded-md sm:text-sm"
+                                placeholder="e.g. 27ABCDE1234F1Z5"
+                            />
+                        </div>
+                    </>
                 )}
 
                 {/* COMMON CONTACT INFO */}
