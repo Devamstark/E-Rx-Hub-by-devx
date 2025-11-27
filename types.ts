@@ -194,6 +194,14 @@ export interface DoctorDetailsSnapshot {
   specialty?: string;
 }
 
+export interface PrescriptionVitals {
+  bp?: string;
+  pulse?: string;
+  temp?: string;
+  spo2?: string;
+  weight?: string;
+}
+
 export interface Prescription {
   id: string;
   doctorId: string;
@@ -203,9 +211,13 @@ export interface Prescription {
   patientName: string;
   patientAge: number;
   patientGender: 'Male' | 'Female' | 'Other';
+  
+  // Clinical Data
+  vitals?: PrescriptionVitals;
   diagnosis: string;
   medicines: Medicine[];
   advice: string;
+  
   date: string; 
   status: 'ISSUED' | 'DISPENSED' | 'REJECTED' | 'CANCELLED' | 'REJECTED_STOCK' | 'SENT_TO_PHARMACY';
   pharmacyId?: string;

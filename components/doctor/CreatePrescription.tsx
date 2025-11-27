@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { Medicine, Prescription, User, Patient, PrescriptionTemplate } from '../../types';
-import { Plus, Trash2, Send, BrainCircuit, FileText, AlertTriangle, Info, Video, User as UserIcon, Search, Link2, UserPlus, RotateCcw, Save, Download, KeyRound, Calendar, Repeat, X, CheckCircle } from 'lucide-react';
+import { Plus, Trash2, Send, BrainCircuit, FileText, AlertTriangle, Info, Video, User as UserIcon, Search, Link2, UserPlus, RotateCcw, Save, Download, KeyRound, Calendar, Repeat, X, CheckCircle, MapPin, Phone, Building2, Mic, Activity, Thermometer, Gauge } from 'lucide-react';
 import { analyzePrescriptionSafety } from '../../services/geminiService';
 import { LOW_RISK_GENERIC_LIST, RESTRICTED_DRUGS } from '../../constants';
 import { dbService } from '../../services/db';
@@ -49,7 +49,8 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
       patientGender: 'Male',
       patientName: '',
       patientAge: 0,
-      refills: 0
+      refills: 0,
+      vitals: { bp: '', pulse: '', temp: '', spo2: '', weight: '' }
     }
   });
 
@@ -62,6 +63,9 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
   const [aiAnalysis, setAiAnalysis] = useState<{ safe: boolean; warnings: string[]; advice: string } | null>(null);
   const [selectedPharmacyId, setSelectedPharmacyId] = useState('');
   const [isPatientVerified, setIsPatientVerified] = useState(false);
+  
+  // Pharmacy Search State
+  const [pharmacySearch, setPharmacySearch] = useState('');
   
   // Patient Management State
   const [patientMode, setPatientMode] = useState<'SEARCH' | 'CREATE'>('SEARCH');
@@ -83,6 +87,9 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
   const [eSignToken, setESignToken] = useState('0000');
   const [eSignInput, setESignInput] = useState('');
 
+  // Voice Input State
+  const [isListening, setIsListening] = useState<'DIAGNOSIS' | 'ADVICE' | null>(null);
+
   // Filtered Autocomplete List - Filter out restricted drugs for safety
   const safeMedicineList = LOW_RISK_GENERIC_LIST.filter(med => 
     !RESTRICTED_DRUGS.some(restricted => med.toLowerCase().includes(restricted.toLowerCase()))
@@ -95,9 +102,23 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
 
   const diagnosis = watch('diagnosis');
   const medicines = watch('medicines');
+  const advice = watch('advice');
   
   const myPatients = patients.filter(p => p.doctorId === currentUser.id);
   const patientResults = myPatients.filter(p => p.fullName.toLowerCase().includes(patientSearch.toLowerCase()) || p.phone.includes(patientSearch));
+
+  // Pharmacy Filtering Logic
+  const filteredPharmacies = verifiedPharmacies.filter(p => {
+      const search = pharmacySearch.toLowerCase();
+      return (
+          p.name.toLowerCase().includes(search) || 
+          (p.clinicAddress || '').toLowerCase().includes(search) ||
+          (p.city || '').toLowerCase().includes(search) ||
+          (p.pincode || '').includes(search)
+      );
+  });
+
+  const selectedPharmacyObj = verifiedPharmacies.find(p => p.id === selectedPharmacyId);
 
   // Filter Rx History for Lookup (Safety check added for undefined patientName)
   const filteredHistory = prescriptionHistory
@@ -197,6 +218,49 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
     const result = await analyzePrescriptionSafety(diagnosis, medicines);
     setAiAnalysis(result);
     setAnalyzing(false);
+  };
+
+  // Voice Dictation Logic
+  const toggleVoiceInput = (field: 'DIAGNOSIS' | 'ADVICE') => {
+      if (isListening) {
+          // Stop listening
+          setIsListening(null);
+          return;
+      }
+
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+          alert("Your browser does not support Voice Dictation. Please use Chrome.");
+          return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.lang = 'en-IN';
+      recognition.interimResults = false;
+
+      recognition.onstart = () => setIsListening(field);
+      
+      recognition.onresult = (event: any) => {
+          const text = event.results[0][0].transcript;
+          if (field === 'DIAGNOSIS') {
+              const current = getValues('diagnosis') || '';
+              setValue('diagnosis', current ? current + ' ' + text : text);
+          } else {
+              const current = getValues('advice') || '';
+              setValue('advice', current ? current + ' ' + text : text);
+          }
+          setIsListening(null);
+      };
+
+      recognition.onerror = () => {
+          setIsListening(null);
+          alert("Voice recognition failed. Please try again.");
+      };
+
+      recognition.onend = () => setIsListening(null);
+
+      recognition.start();
   };
 
   // eSign Handlers
@@ -561,10 +625,54 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
              )}
         </div>
 
-        {/* Diagnosis & AI */}
+        {/* VITALS & DIAGNOSIS */}
         <div>
-          <label className="block text-sm font-bold text-slate-700 uppercase tracking-wide mb-2">2. Diagnosis / Symptoms</label>
-          <textarea {...register('diagnosis', { required: true })} className="mt-1 block w-full border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border p-3 text-sm" rows={2} placeholder="e.g. Acute Bronchitis, dry cough"></textarea>
+          <label className="block text-sm font-bold text-slate-700 uppercase tracking-wide mb-2 flex items-center">
+              <Activity className="w-4 h-4 mr-2 text-teal-600"/> 2. Vitals & Diagnosis
+          </label>
+          
+          {/* Vitals Row */}
+          <div className="bg-slate-50 p-3 rounded-md border border-slate-200 mb-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  <div>
+                      <label className="text-xs font-bold text-slate-500 mb-1 flex items-center"><Activity className="w-3 h-3 mr-1"/> BP (mmHg)</label>
+                      <input {...register('vitals.bp')} className="w-full border p-1.5 text-sm rounded" placeholder="120/80" />
+                  </div>
+                  <div>
+                      <label className="text-xs font-bold text-slate-500 mb-1 flex items-center"><Activity className="w-3 h-3 mr-1"/> Pulse (bpm)</label>
+                      <input {...register('vitals.pulse')} className="w-full border p-1.5 text-sm rounded" placeholder="72" />
+                  </div>
+                  <div>
+                      <label className="text-xs font-bold text-slate-500 mb-1 flex items-center"><Thermometer className="w-3 h-3 mr-1"/> Temp (°F)</label>
+                      <input {...register('vitals.temp')} className="w-full border p-1.5 text-sm rounded" placeholder="98.6" />
+                  </div>
+                  <div>
+                      <label className="text-xs font-bold text-slate-500 mb-1 flex items-center"><Gauge className="w-3 h-3 mr-1"/> SpO2 (%)</label>
+                      <input {...register('vitals.spo2')} className="w-full border p-1.5 text-sm rounded" placeholder="98" />
+                  </div>
+                  <div>
+                      <label className="text-xs font-bold text-slate-500 mb-1 flex items-center"><Activity className="w-3 h-3 mr-1"/> Weight (kg)</label>
+                      <input {...register('vitals.weight')} className="w-full border p-1.5 text-sm rounded" placeholder="70" />
+                  </div>
+              </div>
+          </div>
+
+          <div className="relative">
+              <textarea 
+                {...register('diagnosis', { required: true })} 
+                className="mt-1 block w-full border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border p-3 text-sm pr-10" 
+                rows={2} 
+                placeholder="e.g. Acute Bronchitis, dry cough"
+              ></textarea>
+              <button
+                type="button"
+                onClick={() => toggleVoiceInput('DIAGNOSIS')}
+                className={`absolute top-2 right-2 p-1.5 rounded-full transition-all ${isListening === 'DIAGNOSIS' ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                title="Voice Dictation"
+              >
+                  <Mic className="w-4 h-4" />
+              </button>
+          </div>
           {errors.diagnosis && <p className="text-xs text-red-500 mt-1">Diagnosis is required.</p>}
         </div>
 
@@ -683,7 +791,22 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
         <div>
             <label className="block text-sm font-bold text-slate-700 uppercase tracking-wide">4. Additional Advice & Follow-up</label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
-                <textarea {...register('advice')} className="sm:col-span-2 mt-1 block w-full border-slate-300 rounded-md shadow-sm border p-3 text-sm" rows={2} placeholder="Dietary advice, rest instructions..."></textarea>
+                <div className="sm:col-span-2 relative">
+                    <textarea 
+                        {...register('advice')} 
+                        className="mt-1 block w-full border-slate-300 rounded-md shadow-sm border p-3 text-sm pr-10" 
+                        rows={2} 
+                        placeholder="Dietary advice, rest instructions..."
+                    ></textarea>
+                    <button
+                        type="button"
+                        onClick={() => toggleVoiceInput('ADVICE')}
+                        className={`absolute top-2 right-2 p-1.5 rounded-full transition-all ${isListening === 'ADVICE' ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                        title="Voice Dictation"
+                    >
+                        <Mic className="w-4 h-4" />
+                    </button>
+                </div>
                 <div>
                      <label className="text-xs font-bold text-slate-500 mb-1 flex items-center"><Repeat className="w-3 h-3 mr-1"/> Refills Allowed</label>
                      <input type="number" {...register('refills')} min={0} className="w-full border p-2 rounded text-sm" placeholder="0" />
@@ -736,25 +859,80 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
             </div>
         </div>
 
-        {/* Pharmacy Selection */}
+        {/* Pharmacy Selection - Upgraded with Address & Search */}
         <div>
-            <label className="block text-sm font-bold text-slate-700 uppercase tracking-wide">5. Select Pharmacy (Verified)</label>
-            {verifiedPharmacies.length === 0 ? (
-                <div className="p-3 bg-amber-50 text-amber-700 border border-amber-200 rounded text-sm mt-1">
-                    No verified pharmacies found. Please contact Admin to onboard pharmacies.
+            <label className="block text-sm font-bold text-slate-700 uppercase tracking-wide mb-2">5. Select Pharmacy (Verified)</label>
+            
+            {selectedPharmacyId && selectedPharmacyObj ? (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 animate-in fade-in slide-in-from-bottom-2">
+                    <div className="flex justify-between items-start">
+                        <div className="flex items-start gap-3">
+                            <div className="p-2 bg-white rounded-full border border-green-100">
+                                <Building2 className="w-5 h-5 text-green-600" />
+                            </div>
+                            <div>
+                                <h4 className="font-bold text-green-900">{selectedPharmacyObj.name}</h4>
+                                <p className="text-sm text-green-800 flex items-start mt-1">
+                                    <MapPin className="w-3 h-3 mr-1 mt-1 shrink-0"/>
+                                    {selectedPharmacyObj.clinicAddress}, {selectedPharmacyObj.city} - {selectedPharmacyObj.pincode}
+                                </p>
+                                {selectedPharmacyObj.phone && (
+                                    <p className="text-xs text-green-700 mt-1 flex items-center">
+                                        <Phone className="w-3 h-3 mr-1"/> {selectedPharmacyObj.phone}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                        <button 
+                            onClick={() => setSelectedPharmacyId('')}
+                            className="text-xs font-bold text-red-600 hover:text-red-800 border border-red-200 bg-white px-3 py-1.5 rounded shadow-sm hover:bg-red-50 transition-colors"
+                        >
+                            Change
+                        </button>
+                    </div>
                 </div>
             ) : (
-                <select 
-                    value={selectedPharmacyId} 
-                    onChange={(e) => setSelectedPharmacyId(e.target.value)}
-                    className="mt-1 block w-full border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border p-3 text-sm font-medium"
-                    required
-                >
-                    <option value="">-- Choose Pharmacy --</option>
-                    {verifiedPharmacies.map(p => (
-                        <option key={p.id} value={p.id}>{p.name} ({p.state})</option>
-                    ))}
-                </select>
+                <div className="space-y-3">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400"/>
+                        <input 
+                            className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                            placeholder="Search nearby (City, Pincode) or Pharmacy Name..."
+                            value={pharmacySearch}
+                            onChange={e => setPharmacySearch(e.target.value)}
+                        />
+                    </div>
+                    
+                    <div className="max-h-60 overflow-y-auto border border-slate-200 rounded-lg bg-slate-50 p-2 space-y-2">
+                        {filteredPharmacies.length === 0 ? (
+                            <div className="text-center py-4 text-slate-500 italic text-sm">
+                                No pharmacies found matching "{pharmacySearch}".
+                                {verifiedPharmacies.length === 0 && <span className="block mt-1 text-red-500">No verified pharmacies exist in the system. Contact Admin.</span>}
+                            </div>
+                        ) : (
+                            filteredPharmacies.map(p => (
+                                <div 
+                                    key={p.id} 
+                                    onClick={() => setSelectedPharmacyId(p.id)}
+                                    className="bg-white p-3 rounded border border-slate-200 hover:border-indigo-400 hover:shadow-md cursor-pointer transition-all group"
+                                >
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <h5 className="font-bold text-slate-800 group-hover:text-indigo-700">{p.name}</h5>
+                                            <p className="text-xs text-slate-600 mt-1 flex items-start">
+                                                <MapPin className="w-3 h-3 mr-1 mt-0.5 shrink-0 text-slate-400"/>
+                                                {p.clinicAddress}, {p.city}, {p.state} {p.pincode}
+                                            </p>
+                                        </div>
+                                        <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-1 rounded group-hover:bg-indigo-100">
+                                            Select
+                                        </span>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
             )}
         </div>
 

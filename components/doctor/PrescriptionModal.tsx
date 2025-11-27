@@ -1,7 +1,8 @@
 
+
 import React from 'react';
 import { Prescription } from '../../types';
-import { X, Printer, CheckCircle, FileText, ClipboardList, Share2, AlertOctagon, Repeat, Calendar } from 'lucide-react';
+import { X, Printer, CheckCircle, FileText, ClipboardList, Share2, AlertOctagon, Repeat, Calendar, Activity } from 'lucide-react';
 import ReactDOMServer from 'react-dom/server';
 import { PrintLayout } from '../ui/PrintLayout';
 
@@ -142,13 +143,25 @@ ${prescription.medicines.map(m => `- ${m.name} (${m.dosage}) | ${m.frequency}`).
             </div>
           </div>
 
-          {/* Diagnosis */}
+          {/* Clinical Data: Vitals & Diagnosis */}
           <div>
             <h4 className="text-sm font-bold text-slate-900 mb-2 flex items-center">
-              Diagnosis / Clinical Notes
+              <Activity className="w-4 h-4 mr-2 text-teal-600"/> Clinical Notes
             </h4>
-            <div className="p-3 bg-white border border-slate-200 rounded text-slate-700 text-sm">
-              {prescription.diagnosis}
+            <div className="space-y-3">
+                {prescription.vitals && Object.values(prescription.vitals).some(v => v) && (
+                    <div className="flex gap-4 text-sm bg-teal-50 border border-teal-100 p-3 rounded">
+                        {prescription.vitals.bp && <div><span className="font-bold text-slate-500 text-xs uppercase">BP:</span> <span className="font-mono">{prescription.vitals.bp}</span></div>}
+                        {prescription.vitals.pulse && <div><span className="font-bold text-slate-500 text-xs uppercase">Pulse:</span> <span className="font-mono">{prescription.vitals.pulse}</span></div>}
+                        {prescription.vitals.temp && <div><span className="font-bold text-slate-500 text-xs uppercase">Temp:</span> <span className="font-mono">{prescription.vitals.temp}</span></div>}
+                        {prescription.vitals.spo2 && <div><span className="font-bold text-slate-500 text-xs uppercase">SpO2:</span> <span className="font-mono">{prescription.vitals.spo2}%</span></div>}
+                        {prescription.vitals.weight && <div><span className="font-bold text-slate-500 text-xs uppercase">Weight:</span> <span className="font-mono">{prescription.vitals.weight} kg</span></div>}
+                    </div>
+                )}
+                <div className="p-3 bg-white border border-slate-200 rounded text-slate-700 text-sm">
+                  <span className="font-bold text-xs uppercase text-slate-400 block mb-1">Diagnosis:</span>
+                  {prescription.diagnosis}
+                </div>
             </div>
           </div>
 

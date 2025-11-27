@@ -206,50 +206,6 @@ const UserProfileModal = ({ user, onClose, onSave }: { user: User; onClose: () =
                                 )}
                             </div>
                         </div>
-                        
-                        <div>
-                            <h4 className="font-bold text-slate-800 mt-6 mb-3 flex items-center border-b border-slate-100 pb-2">
-                                <Building2 className="w-4 h-4 mr-2 text-indigo-600"/> Clinic & Contact
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                                {isEditing ? (
-                                    <>
-                                        <div className="col-span-2">
-                                            <EditInput label="Clinic / Hospital Name" valueKey="clinicName" />
-                                        </div>
-                                        <div className="col-span-2">
-                                            <EditInput label="Address" valueKey="clinicAddress" />
-                                        </div>
-                                        <EditInput label="City" valueKey="city" />
-                                        <EditInput label="State" valueKey="state" />
-                                        <EditInput label="Pincode" valueKey="pincode" />
-                                        <EditInput label="Fax" valueKey="fax" />
-                                    </>
-                                ) : (
-                                    <>
-                                         <div className="col-span-2">
-                                            <label className="text-xs font-bold text-slate-500 uppercase block">Clinic / Hospital Name</label>
-                                            <p className="text-sm font-medium text-slate-900">{user.clinicName || '-'}</p>
-                                        </div>
-                                         <div className="col-span-2">
-                                            <label className="text-xs font-bold text-slate-500 uppercase block flex items-center"><MapPin className="w-3 h-3 mr-1"/> Address</label>
-                                            <p className="text-sm font-medium text-slate-900">
-                                                {user.clinicAddress || '-'}
-                                            </p>
-                                            <p className="text-sm text-slate-600">
-                                                {user.city}, {user.state} {user.pincode && `- ${user.pincode}`}
-                                            </p>
-                                        </div>
-                                        {user.fax && (
-                                            <div>
-                                                <label className="text-xs font-bold text-slate-500 uppercase block">Fax</label>
-                                                <p className="text-sm font-medium text-slate-900">{user.fax}</p>
-                                            </div>
-                                        )}
-                                    </>
-                                )}
-                            </div>
-                        </div>
                     </>
                 )}
 
@@ -264,10 +220,7 @@ const UserProfileModal = ({ user, onClose, onSave }: { user: User; onClose: () =
                                 {isEditing ? (
                                     <>
                                         <EditInput label="License Number (Form 20/21)" valueKey="licenseNumber" />
-                                        <EditInput label="State" valueKey="state" />
-                                        <div className="col-span-2">
-                                            <EditInput label="Address" valueKey="clinicAddress" />
-                                        </div>
+                                        <EditInput label="GSTIN" valueKey="gstin" />
                                     </>
                                 ) : (
                                     <>
@@ -276,12 +229,8 @@ const UserProfileModal = ({ user, onClose, onSave }: { user: User; onClose: () =
                                             <p className="text-sm font-medium text-slate-900 font-mono bg-slate-100 inline-block px-1 rounded">{user.licenseNumber || '-'}</p>
                                         </div>
                                         <div>
-                                            <label className="text-xs font-bold text-slate-500 uppercase block">State</label>
-                                            <p className="text-sm font-medium text-slate-900">{user.state || '-'}</p>
-                                        </div>
-                                         <div className="col-span-2">
-                                            <label className="text-xs font-bold text-slate-500 uppercase block flex items-center"><MapPin className="w-3 h-3 mr-1"/> Address</label>
-                                            <p className="text-sm font-medium text-slate-900">{user.clinicAddress || '-'}</p>
+                                            <label className="text-xs font-bold text-slate-500 uppercase block">GSTIN</label>
+                                            <p className="text-sm font-medium text-slate-900 font-mono">{user.gstin || 'N/A'}</p>
                                         </div>
                                     </>
                                 )}
@@ -289,6 +238,58 @@ const UserProfileModal = ({ user, onClose, onSave }: { user: User; onClose: () =
                         </div>
                     </>
                 )}
+
+                {/* COMMON LOCATION & CONTACT (For both) */}
+                <div>
+                    <h4 className="font-bold text-slate-800 mt-6 mb-3 flex items-center border-b border-slate-100 pb-2">
+                        <MapPin className="w-4 h-4 mr-2 text-slate-600"/> Location & Contact
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                        {isEditing ? (
+                            <>
+                                <div className="col-span-2">
+                                    <EditInput label={user.role === 'DOCTOR' ? "Clinic / Hospital Name" : "Pharmacy / Shop Name"} valueKey="clinicName" />
+                                </div>
+                                <div className="col-span-2">
+                                    <EditInput label="Address Line" valueKey="clinicAddress" />
+                                </div>
+                                <EditInput label="City" valueKey="city" />
+                                <EditInput label="State" valueKey="state" />
+                                <EditInput label="Pincode" valueKey="pincode" />
+                                {user.role === 'DOCTOR' && <EditInput label="Fax" valueKey="fax" />}
+                            </>
+                        ) : (
+                            <>
+                                    <div className="col-span-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase block">{user.role === 'DOCTOR' ? "Clinic Name" : "Pharmacy Name"}</label>
+                                    <p className="text-sm font-medium text-slate-900">{user.clinicName || '-'}</p>
+                                </div>
+                                    <div className="col-span-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase block">Address</label>
+                                    <p className="text-sm font-medium text-slate-900">{user.clinicAddress || '-'}</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase block">City</label>
+                                    <p className="text-sm font-medium text-slate-900">{user.city || '-'}</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase block">State</label>
+                                    <p className="text-sm font-medium text-slate-900">{user.state || '-'}</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase block">Pincode</label>
+                                    <p className="text-sm font-medium text-slate-900">{user.pincode || '-'}</p>
+                                </div>
+                                {user.fax && (
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 uppercase block">Fax</label>
+                                        <p className="text-sm font-medium text-slate-900">{user.fax}</p>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </div>
 
                 {/* DOCUMENTS SECTION */}
                 <div>

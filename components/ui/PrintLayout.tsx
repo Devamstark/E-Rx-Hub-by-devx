@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { Prescription } from '../../types';
 
@@ -58,7 +59,7 @@ export const PrintLayout: React.FC<PrintLayoutProps> = ({ rx }) => {
       </div>
 
       {/* Patient Meta Data */}
-      <div className="flex justify-between items-end mb-8 bg-slate-50 p-4 rounded border border-slate-200 print:bg-transparent print:border-slate-300 print:border-x-0 print:border-t-0 print:rounded-none">
+      <div className="flex justify-between items-end mb-6 bg-slate-50 p-4 rounded border border-slate-200 print:bg-transparent print:border-slate-300 print:border-x-0 print:border-t-0 print:rounded-none">
          <div className="flex-1">
              <div className="flex space-x-12 text-sm">
                  <div>
@@ -81,8 +82,17 @@ export const PrintLayout: React.FC<PrintLayoutProps> = ({ rx }) => {
          </div>
       </div>
 
-      {/* Diagnosis */}
+      {/* Clinical Data: Vitals & Diagnosis */}
       <div className="mb-6 px-1">
+          {rx.vitals && Object.values(rx.vitals).some(v => v) && (
+              <div className="flex gap-6 mb-4 text-sm bg-slate-50 border border-slate-200 p-2 rounded print:border-0 print:bg-transparent print:p-0">
+                  {rx.vitals.bp && <div><span className="font-bold text-slate-500 text-xs uppercase">BP:</span> <span className="font-mono font-bold">{rx.vitals.bp}</span></div>}
+                  {rx.vitals.pulse && <div><span className="font-bold text-slate-500 text-xs uppercase">Pulse:</span> <span className="font-mono font-bold">{rx.vitals.pulse}</span></div>}
+                  {rx.vitals.temp && <div><span className="font-bold text-slate-500 text-xs uppercase">Temp:</span> <span className="font-mono font-bold">{rx.vitals.temp}</span></div>}
+                  {rx.vitals.spo2 && <div><span className="font-bold text-slate-500 text-xs uppercase">SpO2:</span> <span className="font-mono font-bold">{rx.vitals.spo2}%</span></div>}
+                  {rx.vitals.weight && <div><span className="font-bold text-slate-500 text-xs uppercase">Weight:</span> <span className="font-mono font-bold">{rx.vitals.weight} kg</span></div>}
+              </div>
+          )}
           <p className="text-xs font-bold text-slate-500 uppercase mb-1">Diagnosis / Clinical Notes</p>
           <p className="font-medium text-slate-900 text-sm">{rx.diagnosis}</p>
       </div>

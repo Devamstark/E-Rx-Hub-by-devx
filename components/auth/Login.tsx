@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { UserRole, User, VerificationStatus, DocumentType, UserDocument } from '../../types';
 import { Shield, ArrowRight, Loader2, AlertCircle, CheckCircle2, Building2, Stethoscope, CheckSquare, Upload } from 'lucide-react';
 import { dbService } from '../../services/db';
-import { INDIAN_STATES, REG_NUMBER_REGEX, PHONE_REGEX } from '../../constants';
+import { INDIAN_STATES, REG_NUMBER_REGEX, PHONE_REGEX, PINCODE_REGEX } from '../../constants';
 
 interface LoginProps {
   onLogin: (user: User) => void;
@@ -32,6 +32,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onRegister }) => {
   // Extended Registration States
   const [regClinicName, setRegClinicName] = useState('');
   const [regAddress, setRegAddress] = useState('');
+  const [regCity, setRegCity] = useState(''); // Added City
+  const [regPincode, setRegPincode] = useState(''); // Added Pincode
   const [regPhone, setRegPhone] = useState('');
   const [regFax, setRegFax] = useState('');
   const [regNmr, setRegNmr] = useState('');
@@ -52,6 +54,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onRegister }) => {
     setRegState('');
     setRegClinicName('');
     setRegAddress('');
+    setRegCity('');
+    setRegPincode('');
     setRegPhone('');
     setRegFax('');
     setRegNmr('');
@@ -118,6 +122,12 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onRegister }) => {
         return;
     }
 
+    if (!PINCODE_REGEX.test(regPincode)) {
+        setError("Invalid Pincode. Must be exactly 6 digits.");
+        setLoading(false);
+        return;
+    }
+
     if (selectedRole === UserRole.DOCTOR) {
         if (!REG_NUMBER_REGEX.test(regLicense)) {
             setError("Invalid Registration Number. Must be 5-15 alphanumeric characters.");
@@ -149,20 +159,18 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onRegister }) => {
         licenseNumber: regLicense,
         state: regState,
         documents: documents,
-        gstin: regGstin, // Added
+        gstin: regGstin,
         
         // Extended Fields
         clinicName: selectedRole === UserRole.DOCTOR ? regClinicName : regName, // Pharmacy Name IS clinicName
         clinicAddress: regAddress,
+        city: regCity,
+        pincode: regPincode,
         phone: regPhone,
         fax: regFax,
         nmrUid: regNmr,
         qualifications: regQualification,
         specialty: regSpecialty,
-        
-        // Also populate backward compatible fields if any
-        city: regAddress.split(',').pop()?.trim() || '',
-        pincode: '' // Not collected in simplified form, can be updated later
     };
 
     setTimeout(() => {
@@ -505,8 +513,34 @@ export const Login: React.FC<LoginProps> = ({ onLogin, users, onRegister }) => {
                         value={regAddress}
                         onChange={(e) => setRegAddress(e.target.value)}
                         className="block w-full px-3 py-2 border border-slate-300 rounded-md sm:text-sm"
-                        placeholder="Street, City, Pincode"
+                        placeholder="Street Address, Landmark"
                     />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700">City <span className="text-red-500">*</span></label>
+                        <input
+                            type="text"
+                            required
+                            value={regCity}
+                            onChange={(e) => setRegCity(e.target.value)}
+                            className="block w-full px-3 py-2 border border-slate-300 rounded-md sm:text-sm"
+                            placeholder="City"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700">Pincode <span className="text-red-500">*</span></label>
+                        <input
+                            type="text"
+                            required
+                            value={regPincode}
+                            onChange={(e) => setRegPincode(e.target.value)}
+                            className="block w-full px-3 py-2 border border-slate-300 rounded-md sm:text-sm"
+                            placeholder="6 Digits"
+                            maxLength={6}
+                        />
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
