@@ -301,7 +301,7 @@ CREATE TABLE IF NOT EXISTS sales ( id TEXT PRIMARY KEY, data JSONB );
                 <div className="space-y-4">
                     <div className="bg-slate-50 p-3 rounded border border-slate-200">
                         <strong className="block mb-1">1. Creating Prescriptions</strong>
-                        <p className="text-sm text-slate-600">Select patient -> Enter Diagnosis -> Add Medicines -> AI Check -> E-Sign.</p>
+                        <p className="text-sm text-slate-600">Select patient &rarr; Enter Diagnosis &rarr; Add Medicines &rarr; AI Check &rarr; E-Sign.</p>
                     </div>
                     <div className="bg-slate-50 p-3 rounded border border-slate-200">
                         <strong className="block mb-1">2. Appointments</strong>
@@ -353,3 +353,4 @@ CREATE TABLE IF NOT EXISTS sales ( id TEXT PRIMARY KEY, data JSONB );
     </div>
   );
 };
+    
