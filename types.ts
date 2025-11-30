@@ -11,7 +11,8 @@ export enum VerificationStatus {
   VERIFIED = 'VERIFIED',
   REJECTED = 'REJECTED',
   INCOMPLETE = 'INCOMPLETE',
-  TERMINATED = 'TERMINATED'
+  TERMINATED = 'TERMINATED',
+  DIRECTORY = 'DIRECTORY'
 }
 
 export enum AdminRole {
@@ -90,6 +91,11 @@ export interface Patient {
   address: string;
   emergencyContact?: string;
   
+  // ABDM / ABHA Integration
+  abhaNumber?: string;   // 14 digit ID
+  abhaAddress?: string;  // e.g. name@abdm
+  isAbhaVerified?: boolean;
+
   height?: string; 
   weight?: string; 
   bloodGroup?: string;
@@ -226,6 +232,9 @@ export interface Prescription {
   
   refills?: number;
   followUpDate?: string;
+  
+  // ABDM Link
+  linkedToAbha?: boolean;
 }
 
 export interface PrescriptionTemplate {

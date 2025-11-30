@@ -1,4 +1,3 @@
-
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { User, Prescription, UserRole, VerificationStatus, Patient, AuditLog, PrescriptionTemplate, Supplier, Customer, Sale, Expense, SalesReturn, LabReferral, Appointment, MedicalCertificate } from '../types';
 
@@ -12,6 +11,247 @@ const INITIAL_USERS: User[] = [
     role: UserRole.ADMIN,
     verificationStatus: VerificationStatus.VERIFIED,
     registrationDate: new Date().toISOString()
+  },
+  // --- AHMEDABAD (380061) PHARMACIES SEED DATA (Directory Mode) ---
+  {
+    id: 'ph-ahd-001',
+    name: 'Apollo Pharmacy (Ghatlodia)',
+    email: 'apollo.ghat@devx.com',
+    password: 'password',
+    role: UserRole.PHARMACY,
+    verificationStatus: VerificationStatus.DIRECTORY,
+    registrationDate: new Date().toISOString(),
+    licenseNumber: 'GJ-AHD-20451',
+    clinicName: 'Apollo Pharmacy',
+    clinicAddress: 'Shop No. 4, Shayona City, Ranna Park, Ghatlodia',
+    city: 'Ahmedabad',
+    state: 'Gujarat',
+    pincode: '380061',
+    phone: '07927612345'
+  },
+  {
+    id: 'ph-ahd-002',
+    name: 'Wellness Forever (Sola)',
+    email: 'wellness.sola@devx.com',
+    password: 'password',
+    role: UserRole.PHARMACY,
+    verificationStatus: VerificationStatus.DIRECTORY,
+    registrationDate: new Date().toISOString(),
+    licenseNumber: 'GJ-AHD-20999',
+    clinicName: 'Wellness Forever Chemist',
+    clinicAddress: 'Ground Floor, Umiya Vijay Society, Science City Road, Sola',
+    city: 'Ahmedabad',
+    state: 'Gujarat',
+    pincode: '380061',
+    phone: '07927622222'
+  },
+  {
+    id: 'ph-ahd-003',
+    name: 'Planet Health (Chanakyapuri)',
+    email: 'planet.chanakya@devx.com',
+    password: 'password',
+    role: UserRole.PHARMACY,
+    verificationStatus: VerificationStatus.DIRECTORY,
+    registrationDate: new Date().toISOString(),
+    licenseNumber: 'GJ-AHD-21500',
+    clinicName: 'Planet Health',
+    clinicAddress: 'G-2, Chanakya Plaza, New CG Road, Ghatlodia',
+    city: 'Ahmedabad',
+    state: 'Gujarat',
+    pincode: '380061',
+    phone: '07927633333'
+  },
+  {
+    id: 'ph-ahd-004',
+    name: 'Akshar Chemist',
+    email: 'akshar.chem@devx.com',
+    password: 'password',
+    role: UserRole.PHARMACY,
+    verificationStatus: VerificationStatus.DIRECTORY,
+    registrationDate: new Date().toISOString(),
+    licenseNumber: 'GJ-AHD-22101',
+    clinicName: 'Akshar Chemist',
+    clinicAddress: '12, Nirnay Nagar Sector 1, Opp. Gopi Dairy',
+    city: 'Ahmedabad',
+    state: 'Gujarat',
+    pincode: '380061',
+    phone: '9825012345'
+  },
+  {
+    id: 'ph-ahd-005',
+    name: 'Maruti Medical Store',
+    email: 'maruti.med@devx.com',
+    password: 'password',
+    role: UserRole.PHARMACY,
+    verificationStatus: VerificationStatus.DIRECTORY,
+    registrationDate: new Date().toISOString(),
+    licenseNumber: 'GJ-AHD-22455',
+    clinicName: 'Maruti Medical Store',
+    clinicAddress: 'Shop 7, Ranna Park Bus Stand, Ghatlodia',
+    city: 'Ahmedabad',
+    state: 'Gujarat',
+    pincode: '380061',
+    phone: '9879054321'
+  },
+  {
+    id: 'ph-ahd-006',
+    name: 'Shreeji Medical',
+    email: 'shreeji.med@devx.com',
+    password: 'password',
+    role: UserRole.PHARMACY,
+    verificationStatus: VerificationStatus.DIRECTORY,
+    registrationDate: new Date().toISOString(),
+    licenseNumber: 'GJ-AHD-23001',
+    clinicName: 'Shreeji Medical',
+    clinicAddress: 'KK Nagar Road, Near Shiv Temple, Ghatlodia',
+    city: 'Ahmedabad',
+    state: 'Gujarat',
+    pincode: '380061',
+    phone: '9909988776'
+  },
+  {
+    id: 'ph-ahd-007',
+    name: 'Life Care Pharmacy',
+    email: 'lifecare.sola@devx.com',
+    password: 'password',
+    role: UserRole.PHARMACY,
+    verificationStatus: VerificationStatus.DIRECTORY,
+    registrationDate: new Date().toISOString(),
+    licenseNumber: 'GJ-AHD-23567',
+    clinicName: 'Life Care Pharmacy',
+    clinicAddress: 'Opp. CIMS Hospital, Science City Road, Sola',
+    city: 'Ahmedabad',
+    state: 'Gujarat',
+    pincode: '380061',
+    phone: '9898011223'
+  },
+  {
+    id: 'ph-ahd-008',
+    name: 'Gayatri Medical Stores',
+    email: 'gayatri.med@devx.com',
+    password: 'password',
+    role: UserRole.PHARMACY,
+    verificationStatus: VerificationStatus.DIRECTORY,
+    registrationDate: new Date().toISOString(),
+    licenseNumber: 'GJ-AHD-24111',
+    clinicName: 'Gayatri Medical Stores',
+    clinicAddress: 'Sector 3, Chanakyapuri, Ghatlodia',
+    city: 'Ahmedabad',
+    state: 'Gujarat',
+    pincode: '380061',
+    phone: '9723456789'
+  },
+  {
+    id: 'ph-ahd-009',
+    name: 'Shiv Medical',
+    email: 'shiv.med@devx.com',
+    password: 'password',
+    role: UserRole.PHARMACY,
+    verificationStatus: VerificationStatus.DIRECTORY,
+    registrationDate: new Date().toISOString(),
+    licenseNumber: 'GJ-AHD-24888',
+    clinicName: 'Shiv Medical',
+    clinicAddress: 'Near Prabhat Chowk, Ghatlodia',
+    city: 'Ahmedabad',
+    state: 'Gujarat',
+    pincode: '380061',
+    phone: '9925066778'
+  },
+  {
+    id: 'ph-ahd-010',
+    name: 'Aaspas Medical',
+    email: 'aaspas.med@devx.com',
+    password: 'password',
+    role: UserRole.PHARMACY,
+    verificationStatus: VerificationStatus.DIRECTORY,
+    registrationDate: new Date().toISOString(),
+    licenseNumber: 'GJ-AHD-25123',
+    clinicName: 'Aaspas Medical',
+    clinicAddress: 'Near Pavapuri, Ghatlodia',
+    city: 'Ahmedabad',
+    state: 'Gujarat',
+    pincode: '380061',
+    phone: '9824099887'
+  },
+  {
+    id: 'ph-ahd-011',
+    name: 'Jay Ambe Medical',
+    email: 'jayambe.med@devx.com',
+    password: 'password',
+    role: UserRole.PHARMACY,
+    verificationStatus: VerificationStatus.DIRECTORY,
+    registrationDate: new Date().toISOString(),
+    licenseNumber: 'GJ-AHD-25666',
+    clinicName: 'Jay Ambe Medical',
+    clinicAddress: 'Satadhar Cross Roads, Sola Road',
+    city: 'Ahmedabad',
+    state: 'Gujarat',
+    pincode: '380061',
+    phone: '9898900112'
+  },
+  {
+    id: 'ph-ahd-012',
+    name: 'Karnavati Medical',
+    email: 'karnavati.sola@devx.com',
+    password: 'password',
+    role: UserRole.PHARMACY,
+    verificationStatus: VerificationStatus.DIRECTORY,
+    registrationDate: new Date().toISOString(),
+    licenseNumber: 'GJ-AHD-26001',
+    clinicName: 'Karnavati Medical',
+    clinicAddress: 'Bhuyangdev Cross Road, Sola',
+    city: 'Ahmedabad',
+    state: 'Gujarat',
+    pincode: '380061',
+    phone: '9712345678'
+  },
+  {
+    id: 'ph-ahd-013',
+    name: 'Generic Aushadhi Kendra',
+    email: 'generic.ghat@devx.com',
+    password: 'password',
+    role: UserRole.PHARMACY,
+    verificationStatus: VerificationStatus.DIRECTORY,
+    registrationDate: new Date().toISOString(),
+    licenseNumber: 'GJ-AHD-PMJAY-01',
+    clinicName: 'Pradhan Mantri Jan Aushadhi Kendra',
+    clinicAddress: 'Shop 10, Municipal Market, Ghatlodia',
+    city: 'Ahmedabad',
+    state: 'Gujarat',
+    pincode: '380061',
+    phone: '07927644444'
+  },
+  {
+    id: 'ph-ahd-014',
+    name: 'Laxmi Medical Stores',
+    email: 'laxmi.med@devx.com',
+    password: 'password',
+    role: UserRole.PHARMACY,
+    verificationStatus: VerificationStatus.DIRECTORY,
+    registrationDate: new Date().toISOString(),
+    licenseNumber: 'GJ-AHD-26555',
+    clinicName: 'Laxmi Medical Stores',
+    clinicAddress: 'Opp. Kameshwar School, Jodhpur Road, Satellite (Branch 2)', // Slightly outside but serves area
+    city: 'Ahmedabad',
+    state: 'Gujarat',
+    pincode: '380061',
+    phone: '9904033221'
+  },
+  {
+    id: 'ph-ahd-015',
+    name: 'Honest Medical',
+    email: 'honest.med@devx.com',
+    password: 'password',
+    role: UserRole.PHARMACY,
+    verificationStatus: VerificationStatus.DIRECTORY,
+    registrationDate: new Date().toISOString(),
+    licenseNumber: 'GJ-AHD-27009',
+    clinicName: 'Honest Medical',
+    clinicAddress: 'Shayona City Gate 2, Ghatlodia',
+    city: 'Ahmedabad',
+    state: 'Gujarat',
+    pincode: '380061',
+    phone: '9825566778'
   }
 ];
 
@@ -133,7 +373,23 @@ if (SUPABASE_URL && SUPABASE_KEY) {
 const local = {
     getUsers: (): User[] => {
         const s = localStorage.getItem('devx_users');
-        return s ? JSON.parse(s) : INITIAL_USERS;
+        if (!s) return INITIAL_USERS;
+        
+        try {
+            const storedUsers: User[] = JSON.parse(s);
+            // Merge strategy:
+            // 1. Keep all stored users (preserves updates/registrations)
+            // 2. Add INITIAL_USERS that are NOT in stored users (by ID)
+            // This allows us to inject new seed data (like the pharmacies) without wiping user data
+            const missingSeedUsers = INITIAL_USERS.filter(
+                seedUser => !storedUsers.some(storedUser => storedUser.id === seedUser.id)
+            );
+            
+            return [...storedUsers, ...missingSeedUsers];
+        } catch (e) {
+            console.error("Error parsing stored users", e);
+            return INITIAL_USERS;
+        }
     },
     setUsers: (users: User[]) => localStorage.setItem('devx_users', JSON.stringify(users)),
     getRx: (): Prescription[] => {
@@ -231,6 +487,20 @@ export const dbService = {
         }
     },
 
+    async getPublicPrescription(id: string): Promise<Prescription | null> {
+        // Try Cloud First
+        if (supabase) {
+            const { data: rxData } = await supabase.from('prescriptions').select('data').eq('id', 'global_prescriptions').single();
+            if (rxData && rxData.data) {
+                const rx = (rxData.data as Prescription[]).find(p => p.id === id);
+                if (rx) return rx;
+            }
+        }
+        // Fallback to local
+        const localRx = local.getRx();
+        return localRx.find(p => p.id === id) || null;
+    },
+
     async loadData(): Promise<{ 
         users: User[], 
         rx: Prescription[], 
@@ -307,6 +577,14 @@ export const dbService = {
             const auditLogs = uniqueLogs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
             
             const users = (userData && userData.data) ? userData.data : INITIAL_USERS;
+            // Also perform the merge logic for Cloud data to ensure seed data is present
+            const mergedUsers = [...users];
+            INITIAL_USERS.forEach(initUser => {
+                if (!mergedUsers.find(u => u.id === initUser.id)) {
+                    mergedUsers.push(initUser);
+                }
+            });
+
             const rx = (rxData && rxData.data) ? rxData.data : INITIAL_RX;
             const patients = (patientData && patientData.data) ? patientData.data : [];
             const labReferrals = (labData && labData.data) ? labData.data : INITIAL_LAB_REFERRALS;
@@ -314,7 +592,7 @@ export const dbService = {
             const certificates = (certData && certData.data) ? certData.data : [];
             const salesReturns = (retData && retData.data) ? retData.data : [];
 
-            return { users, rx, patients, auditLogs, labReferrals, appointments, certificates, salesReturns };
+            return { users: mergedUsers, rx, patients, auditLogs, labReferrals, appointments, certificates, salesReturns };
         } catch (e) {
             console.error("DB Load Error:", e);
             return { 
@@ -458,4 +736,28 @@ export const dbService = {
     getSales: (): Sale[] => local.getSales(),
     getSalesReturns: (): SalesReturn[] => local.getSalesReturns(),
     getExpenses: (): Expense[] => local.getExpenses(),
+
+    // --- MANUAL SEED FUNCTION ---
+    async seedDatabase(): Promise<void> {
+        if (!supabase) throw new Error("Not connected to Cloud. Seeding is only for Cloud DB.");
+        const { users: currentUsers } = await this.loadData();
+        
+        const newUsers = [...currentUsers];
+        let addedCount = 0;
+
+        INITIAL_USERS.forEach(seedUser => {
+            if (!newUsers.find(u => u.id === seedUser.id)) {
+                newUsers.push(seedUser);
+                addedCount++;
+            }
+        });
+
+        if (addedCount > 0) {
+            await this.saveUsers(newUsers);
+            alert(`Database Seeded Successfully! Added ${addedCount} missing system users (Pharmacies/Admins).`);
+            window.location.reload();
+        } else {
+            alert("Database is already up to date with the latest code-based records.");
+        }
+    }
 };

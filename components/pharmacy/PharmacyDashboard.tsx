@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { CheckCircle, Package, Search, Users, ShoppingCart, Plus, Save, Trash2, Stethoscope, BarChart3, ScanBarcode, X, Activity, Calculator, FileText, Phone, MapPin, Edit2, AlertOctagon, Receipt, Truck, BookOpen, BrainCircuit, CreditCard, Filter, Building2, Printer, RotateCcw, AlertTriangle, UserPlus, UserCheck, ArrowRight, User, Wallet, ArrowLeft, Keyboard } from 'lucide-react';
-import { Prescription, User as UserType, InventoryItem, DoctorDirectoryEntry, Patient, Supplier, Customer, Sale, SaleItem, GRN, Expense, SalesReturn } from '../../types';
+import { CheckCircle, Package, Search, Users, ShoppingCart, Plus, Save, Trash2, Stethoscope, BarChart3, ScanBarcode, X, Activity, Calculator, FileText, Phone, MapPin, Edit2, AlertOctagon, Receipt, Truck, BookOpen, BrainCircuit, CreditCard, Filter, Building2, Printer, RotateCcw, AlertTriangle, UserPlus, UserCheck, ArrowRight, User, Wallet, ArrowLeft, Keyboard, PauseCircle, PlayCircle, AlertCircle, Tag } from 'lucide-react';
+import { Prescription, User as UserType, InventoryItem, DoctorDirectoryEntry, Patient, Supplier, Customer, Sale, SaleItem, GRN, Expense, SalesReturn, Medicine } from '../../types';
 import { PrescriptionModal } from '../doctor/PrescriptionModal';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from 'recharts';
 import { dbService } from '../../services/db';
@@ -138,6 +139,27 @@ const PrintableReceipt = ({ sale, user }: { sale: Sale, user: UserType }) => (
     </div>
 );
 
+// Medicine Label Component
+const MedicineLabel = ({ data, pharmacyName }: { data: { patient: string, drug: string, dose: string, freq: string, instr: string }, pharmacyName: string }) => (
+    <div id="med-label" className="hidden print:block bg-white text-black font-sans border-2 border-black p-2 w-[70mm] h-[40mm] overflow-hidden">
+        <style dangerouslySetInnerHTML={{__html: `
+            @media print {
+                #med-label { visibility: visible; position: fixed; top: 0; left: 0; }
+                @page { size: 70mm 40mm; margin: 0; }
+            }
+        `}} />
+        <div className="text-center font-bold border-b border-black pb-1 mb-1 text-[10px] uppercase">{pharmacyName}</div>
+        <div className="text-[10px] mb-1"><b>Patient:</b> {data.patient}</div>
+        <div className="font-bold text-sm mb-1 truncate">{data.drug}</div>
+        <div className="flex justify-between text-[10px] font-bold mb-1">
+            <span>{data.dose}</span>
+            <span>{data.freq}</span>
+        </div>
+        <div className="text-[9px] italic border-t border-black pt-1 leading-tight">{data.instr || 'As directed by physician.'}</div>
+        <div className="text-[8px] text-right mt-1">Keep away from children.</div>
+    </div>
+);
+
 export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({ 
     prescriptions, 
     onDispense,
@@ -254,6 +276,21 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
       setProcessingRx(null);
   };
 
+  // Label Printing Logic
+  const [printLabelData, setPrintLabelData] = useState<{patient:string, drug:string, dose:string, freq:string, instr:string}|null>(null);
+  const handlePrintLabel = (med: Medicine) => {
+      if (!processingRx) return;
+      setPrintLabelData({
+          patient: processingRx.patientName,
+          drug: med.name,
+          dose: med.dosage,
+          freq: med.frequency,
+          instr: med.instructions || ''
+      });
+      // Small delay to allow render then print
+      setTimeout(() => window.print(), 100);
+  };
+
 
   // --- POS BILLING LOGIC ---
   const [cart, setCart] = useState<SaleItem[]>([]);
@@ -271,6 +308,10 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
       value: string,
       onConfirm: (val: string) => void
   } | null>(null);
+
+  // Hold Bill State
+  const [heldBills, setHeldBills] = useState<{id: string, customerName: string, items: SaleItem[], date: string}[]>([]);
+  const [showHeldBills, setShowHeldBills] = useState(false);
 
   // Update amount paid default when cart total changes
   const cartTotal = useMemo(() => Math.round(cart.reduce((a,b)=>a+(b.mrp*b.quantity),0)), [cart]);
@@ -301,6 +342,30 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
               discount: 0,
               total: item.mrp
           }]);
+      }
+  };
+
+  const handleHoldBill = () => {
+      if (cart.length === 0) return;
+      const bill = {
+          id: `HOLD-${Date.now()}`,
+          customerName: selectedPosCustomer?.name || 'Walk-in',
+          items: cart,
+          date: new Date().toISOString()
+      };
+      setHeldBills([...heldBills, bill]);
+      setCart([]);
+      setSelectedPosCustomer(null);
+      setPosSearch('');
+      alert("Bill Placed on Hold");
+  };
+
+  const handleRecallBill = (billId: string) => {
+      const bill = heldBills.find(b => b.id === billId);
+      if (bill) {
+          setCart(bill.items);
+          setHeldBills(heldBills.filter(b => b.id !== billId));
+          setShowHeldBills(false);
       }
   };
 
@@ -527,6 +592,7 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
 
   // --- INVENTORY & GRN LOGIC ---
   const [showGrnForm, setShowGrnForm] = useState(false);
+  const [inventoryView, setInventoryView] = useState<'LIST' | 'STOCK_CHECK'>('LIST');
   const [grnSupplier, setGrnSupplier] = useState('');
   const [grnItems, setGrnItems] = useState<InventoryItem[]>([]); 
   const [newItem, setNewItem] = useState<Partial<InventoryItem>>({});
@@ -567,6 +633,29 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
       alert("GRN Saved & Inventory Updated!");
       setGrnItems([]);
       setShowGrnForm(false);
+  };
+
+  const handleWriteOff = async (item: InventoryItem, qty: number, reason: string) => {
+      if (qty > item.stock) return;
+      
+      const lossAmount = qty * item.purchasePrice;
+      
+      // Update Inventory
+      const updatedInv = inventory.map(i => i.id === item.id ? { ...i, stock: i.stock - qty } : i);
+      onUpdateUser({ ...currentUser, inventory: updatedInv });
+
+      // Log Expense
+      const expense: Expense = {
+          id: `EXP-${Date.now()}`,
+          date: new Date().toISOString(),
+          category: 'Write Off',
+          description: `Stock Write-off: ${item.name} (${qty} units) - ${reason}`,
+          amount: lossAmount,
+          pharmacyId: currentUser.id
+      };
+      setExpenses([...expenses, expense]);
+      
+      alert("Stock written off and expense recorded.");
   };
 
   // --- AI INSIGHTS ---
@@ -712,12 +801,21 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
                             autoFocus
                           />
                       </div>
-                      <button 
-                        onClick={openQuickAdd}
-                        className="w-full sm:w-auto bg-teal-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-teal-700 flex items-center justify-center whitespace-nowrap"
-                      >
-                        <Plus className="w-4 h-4 mr-1"/> Quick Add Item
-                      </button>
+                      <div className="flex gap-2">
+                          <button 
+                            onClick={openQuickAdd}
+                            className="w-full sm:w-auto bg-teal-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-teal-700 flex items-center justify-center whitespace-nowrap"
+                          >
+                            <Plus className="w-4 h-4 mr-1"/> Quick Add
+                          </button>
+                          <button
+                            onClick={() => setShowHeldBills(true)}
+                            className="bg-orange-100 text-orange-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-orange-200 flex items-center border border-orange-200 relative"
+                          >
+                              <PauseCircle className="w-4 h-4 mr-1"/> Recall
+                              {heldBills.length > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center">{heldBills.length}</span>}
+                          </button>
+                      </div>
                   </div>
                   
                   <div className="flex-1 overflow-y-auto p-4">
@@ -880,13 +978,21 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
                            </span>
                       </div>
 
-                      <button 
-                        onClick={handlePosCheckout}
-                        disabled={cart.length === 0}
-                        className="w-full bg-green-600 text-white py-3 rounded-lg font-bold shadow-lg hover:bg-green-700 disabled:opacity-50 flex justify-center items-center"
-                      >
-                          <Receipt className="w-5 h-5 mr-2"/> Checkout & Print
-                      </button>
+                      <div className="grid grid-cols-2 gap-2">
+                          <button 
+                            onClick={handleHoldBill}
+                            className="bg-amber-100 text-amber-700 py-3 rounded-lg font-bold hover:bg-amber-200 border border-amber-200 flex justify-center items-center"
+                          >
+                              <PauseCircle className="w-5 h-5 mr-1"/> Hold
+                          </button>
+                          <button 
+                            onClick={handlePosCheckout}
+                            disabled={cart.length === 0}
+                            className="bg-green-600 text-white py-3 rounded-lg font-bold shadow-lg hover:bg-green-700 disabled:opacity-50 flex justify-center items-center"
+                          >
+                              <Receipt className="w-5 h-5 mr-1"/> Checkout
+                          </button>
+                      </div>
                   </div>
               </div>
           </div>
@@ -1011,6 +1117,33 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
         </div>
       )}
 
+      {/* RECALL BILL MODAL */}
+      {showHeldBills && (
+          <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-[160] p-4">
+              <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+                  <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+                      <h3 className="font-bold text-lg">Held Bills</h3>
+                      <button onClick={() => setShowHeldBills(false)}><X className="w-5 h-5"/></button>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto p-4 space-y-2">
+                      {heldBills.length === 0 ? (
+                          <p className="text-center text-slate-400 py-4">No held bills.</p>
+                      ) : (
+                          heldBills.map(bill => (
+                              <div key={bill.id} className="border p-3 rounded flex justify-between items-center hover:bg-slate-50">
+                                  <div>
+                                      <p className="font-bold">{bill.customerName}</p>
+                                      <p className="text-xs text-slate-500">{new Date(bill.date).toLocaleTimeString()} • {bill.items.length} Items</p>
+                                  </div>
+                                  <button onClick={() => handleRecallBill(bill.id)} className="bg-indigo-600 text-white px-3 py-1 rounded text-xs font-bold hover:bg-indigo-700">Resume</button>
+                              </div>
+                          ))
+                      )}
+                  </div>
+              </div>
+          </div>
+      )}
+
       {/* KEYPAD MODAL FOR QUICK ADD FIELDS */}
       {numpadModal && (
         <div className="fixed inset-0 bg-slate-900/40 z-[200] flex items-center justify-center p-4 backdrop-blur-sm">
@@ -1079,103 +1212,159 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
           <div className="space-y-6 animate-in fade-in">
               <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                   <h3 className="text-lg font-bold text-slate-800">Inventory & Stock Entry</h3>
-                  <div className="flex gap-2">
-                       <button onClick={() => setShowGrnForm(!showGrnForm)} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center hover:bg-teal-700">
-                           <Plus className="w-4 h-4 mr-2"/> New GRN Entry
-                       </button>
+                  <div className="flex gap-2 bg-slate-100 p-1 rounded-lg">
+                       <button onClick={() => setInventoryView('LIST')} className={`px-4 py-2 rounded font-bold text-sm ${inventoryView === 'LIST' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}>Master List</button>
+                       <button onClick={() => setInventoryView('STOCK_CHECK')} className={`px-4 py-2 rounded font-bold text-sm ${inventoryView === 'STOCK_CHECK' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}>Expiry / Audit</button>
                   </div>
               </div>
 
-              {showGrnForm && (
-                  <div className="bg-white p-6 rounded-xl border border-teal-200 shadow-lg animate-in slide-in-from-top-4">
-                      <h4 className="font-bold text-teal-800 mb-4 border-b border-teal-100 pb-2">Goods Received Note (GRN)</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                          <div>
-                              <label className="text-xs font-bold text-slate-500">Supplier *</label>
-                              <select className="w-full border p-2 rounded text-sm" onChange={e => setGrnSupplier(e.target.value)} value={grnSupplier}>
-                                  <option value="">Select Supplier</option>
-                                  {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                              </select>
-                          </div>
-                      </div>
+              {inventoryView === 'LIST' && (
+                  <>
+                    {showGrnForm ? (
+                        <div className="bg-white p-6 rounded-xl border border-teal-200 shadow-lg animate-in slide-in-from-top-4">
+                            <h4 className="font-bold text-teal-800 mb-4 border-b border-teal-100 pb-2">Goods Received Note (GRN)</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500">Supplier *</label>
+                                    <select className="w-full border p-2 rounded text-sm" onChange={e => setGrnSupplier(e.target.value)} value={grnSupplier}>
+                                        <option value="">Select Supplier</option>
+                                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                    </select>
+                                </div>
+                            </div>
 
-                      <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 grid grid-cols-2 md:grid-cols-6 gap-3 mb-4">
-                          <input placeholder="Item Name" className="border p-2 rounded text-sm col-span-2" value={newItem.name || ''} onChange={e => setNewItem({...newItem, name: e.target.value})} />
-                          <input placeholder="Batch No" className="border p-2 rounded text-sm" value={newItem.batchNumber || ''} onChange={e => setNewItem({...newItem, batchNumber: e.target.value})} />
-                          <input type="date" className="border p-2 rounded text-sm" value={newItem.expiryDate || ''} onChange={e => setNewItem({...newItem, expiryDate: e.target.value})} />
-                          <input type="number" placeholder="Qty" className="border p-2 rounded text-sm" value={newItem.stock || ''} onChange={e => setNewItem({...newItem, stock: parseInt(e.target.value)})} />
-                          <input type="number" placeholder="Cost Price" className="border p-2 rounded text-sm" value={newItem.purchasePrice || ''} onChange={e => setNewItem({...newItem, purchasePrice: parseFloat(e.target.value)})} />
-                          <input type="number" placeholder="MRP" className="border p-2 rounded text-sm" value={newItem.mrp || ''} onChange={e => setNewItem({...newItem, mrp: parseFloat(e.target.value)})} />
-                          <button onClick={handleAddGrnItem} className="bg-indigo-600 text-white p-2 rounded font-bold text-xs col-span-full md:col-span-1">Add Line</button>
-                      </div>
+                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 grid grid-cols-2 md:grid-cols-6 gap-3 mb-4">
+                                <input placeholder="Item Name" className="border p-2 rounded text-sm col-span-2" value={newItem.name || ''} onChange={e => setNewItem({...newItem, name: e.target.value})} />
+                                <input placeholder="Batch No" className="border p-2 rounded text-sm" value={newItem.batchNumber || ''} onChange={e => setNewItem({...newItem, batchNumber: e.target.value})} />
+                                <input type="date" className="border p-2 rounded text-sm" value={newItem.expiryDate || ''} onChange={e => setNewItem({...newItem, expiryDate: e.target.value})} />
+                                <input type="number" placeholder="Qty" className="border p-2 rounded text-sm" value={newItem.stock || ''} onChange={e => setNewItem({...newItem, stock: parseInt(e.target.value)})} />
+                                <input type="number" placeholder="Cost Price" className="border p-2 rounded text-sm" value={newItem.purchasePrice || ''} onChange={e => setNewItem({...newItem, purchasePrice: parseFloat(e.target.value)})} />
+                                <input type="number" placeholder="MRP" className="border p-2 rounded text-sm" value={newItem.mrp || ''} onChange={e => setNewItem({...newItem, mrp: parseFloat(e.target.value)})} />
+                                <button onClick={handleAddGrnItem} className="bg-indigo-600 text-white p-2 rounded font-bold text-xs col-span-full md:col-span-1">Add Line</button>
+                            </div>
 
-                      {grnItems.length > 0 && (
-                          <div className="mb-4">
-                              <div className="overflow-x-auto">
-                                  <table className="w-full text-sm">
-                                      <thead className="bg-slate-100 text-xs text-slate-500 uppercase">
-                                          <tr><th>Item</th><th>Batch</th><th>Qty</th><th>Cost</th><th>Total</th></tr>
-                                      </thead>
-                                      <tbody>
-                                          {grnItems.map((i, idx) => (
-                                              <tr key={idx} className="border-b">
-                                                  <td className="p-2">{i.name}</td>
-                                                  <td className="p-2">{i.batchNumber}</td>
-                                                  <td className="p-2">{i.stock}</td>
-                                                  <td className="p-2">{i.purchasePrice}</td>
-                                                  <td className="p-2">{i.stock * i.purchasePrice}</td>
-                                              </tr>
-                                          ))}
-                                      </tbody>
-                                  </table>
-                              </div>
-                          </div>
-                      )}
+                            {grnItems.length > 0 && (
+                                <div className="mb-4">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-slate-100 text-xs text-slate-500 uppercase">
+                                                <tr><th>Item</th><th>Batch</th><th>Qty</th><th>Cost</th><th>Total</th></tr>
+                                            </thead>
+                                            <tbody>
+                                                {grnItems.map((i, idx) => (
+                                                    <tr key={idx} className="border-b">
+                                                        <td className="p-2">{i.name}</td>
+                                                        <td className="p-2">{i.batchNumber}</td>
+                                                        <td className="p-2">{i.stock}</td>
+                                                        <td className="p-2">{i.purchasePrice}</td>
+                                                        <td className="p-2">{i.stock * i.purchasePrice}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
 
-                      <div className="flex justify-end gap-3">
-                          <button onClick={() => setShowGrnForm(false)} className="text-slate-500 font-bold text-sm">Cancel</button>
-                          <button onClick={handleSaveGRN} className="bg-green-600 text-white px-6 py-2 rounded font-bold hover:bg-green-700">Save GRN & Update Stock</button>
+                            <div className="flex justify-end gap-3">
+                                <button onClick={() => setShowGrnForm(false)} className="text-slate-500 font-bold text-sm">Cancel</button>
+                                <button onClick={handleSaveGRN} className="bg-green-600 text-white px-6 py-2 rounded font-bold hover:bg-green-700">Save GRN & Update Stock</button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-right mb-2">
+                            <button onClick={() => setShowGrnForm(true)} className="bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-bold inline-flex items-center hover:bg-teal-700">
+                                <Plus className="w-4 h-4 mr-2"/> New GRN Entry
+                            </button>
+                        </div>
+                    )}
+
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-slate-200">
+                                    <thead className="bg-slate-50">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Product</th>
+                                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Batch Info</th>
+                                            <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Stock</th>
+                                            <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Value</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-slate-200">
+                                        {inventory.map(item => (
+                                            <tr key={item.id} className="hover:bg-slate-50">
+                                                <td className="px-6 py-4">
+                                                    <p className="font-bold text-slate-900 text-sm">{item.name}</p>
+                                                    {item.genericName && <p className="text-xs text-slate-500 italic">{item.genericName}</p>}
+                                                    <p className="text-xs text-slate-400 mt-0.5">{item.manufacturer}</p>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <p className="text-xs font-mono text-slate-600">{item.batchNumber}</p>
+                                                    <p className={`text-xs font-bold ${item.expiryDate && new Date(item.expiryDate) < new Date() ? 'text-red-500' : 'text-slate-500'}`}>Exp: {item.expiryDate || 'N/A'}</p>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <span className={`px-2 py-1 rounded text-xs font-bold ${item.stock <= item.minStockLevel ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                                        {item.stock} Units
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-right text-sm font-bold text-slate-700">
+                                                    ₹{item.stock * item.purchasePrice}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                        </div>
+                    </div>
+                  </>
+              )}
+
+              {inventoryView === 'STOCK_CHECK' && (
+                  <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                      <h3 className="font-bold text-slate-800 mb-4 flex items-center">
+                          <AlertCircle className="w-5 h-5 mr-2 text-red-600"/> Expiry Risk & Stock Write-off
+                      </h3>
+                      <div className="overflow-x-auto">
+                          <table className="min-w-full text-sm">
+                              <thead className="bg-red-50 text-red-800 text-xs uppercase">
+                                  <tr>
+                                      <th className="p-3 text-left">Item Name</th>
+                                      <th className="p-3 text-center">Batch</th>
+                                      <th className="p-3 text-center">Expiry Date</th>
+                                      <th className="p-3 text-center">Stock</th>
+                                      <th className="p-3 text-center">Action</th>
+                                  </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                  {inventory
+                                    .filter(i => i.expiryDate && new Date(i.expiryDate) < new Date(new Date().setMonth(new Date().getMonth() + 3)) && i.stock > 0)
+                                    .map(item => (
+                                      <tr key={item.id}>
+                                          <td className="p-3 font-bold text-slate-800">{item.name}</td>
+                                          <td className="p-3 text-center font-mono">{item.batchNumber}</td>
+                                          <td className="p-3 text-center text-red-600 font-bold">{item.expiryDate}</td>
+                                          <td className="p-3 text-center">{item.stock}</td>
+                                          <td className="p-3 text-center">
+                                              <button 
+                                                onClick={() => {
+                                                    const qty = prompt(`Enter Qty to Write Off for ${item.name} (Max: ${item.stock})`);
+                                                    if(qty) handleWriteOff(item, parseInt(qty), 'Expired / Damaged');
+                                                }}
+                                                className="bg-white border border-red-200 text-red-600 px-3 py-1 rounded text-xs font-bold hover:bg-red-50"
+                                              >
+                                                  Write Off
+                                              </button>
+                                          </td>
+                                      </tr>
+                                  ))}
+                                  {inventory.filter(i => i.expiryDate && new Date(i.expiryDate) < new Date(new Date().setMonth(new Date().getMonth() + 3)) && i.stock > 0).length === 0 && (
+                                      <tr><td colSpan={5} className="p-6 text-center text-slate-500 italic">No items expiring within 3 months.</td></tr>
+                                  )}
+                              </tbody>
+                          </table>
                       </div>
                   </div>
               )}
-
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                   <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-slate-200">
-                            <thead className="bg-slate-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Product</th>
-                                    <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Batch Info</th>
-                                    <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Stock</th>
-                                    <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Value</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-slate-200">
-                                {inventory.map(item => (
-                                    <tr key={item.id} className="hover:bg-slate-50">
-                                        <td className="px-6 py-4">
-                                            <p className="font-bold text-slate-900 text-sm">{item.name}</p>
-                                            {item.genericName && <p className="text-xs text-slate-500 italic">{item.genericName}</p>}
-                                            <p className="text-xs text-slate-400 mt-0.5">{item.manufacturer}</p>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <p className="text-xs font-mono text-slate-600">{item.batchNumber}</p>
-                                            <p className={`text-xs font-bold ${item.expiryDate && new Date(item.expiryDate) < new Date() ? 'text-red-500' : 'text-slate-500'}`}>Exp: {item.expiryDate || 'N/A'}</p>
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <span className={`px-2 py-1 rounded text-xs font-bold ${item.stock <= item.minStockLevel ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                                                {item.stock} Units
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-right text-sm font-bold text-slate-700">
-                                            ₹{item.stock * item.purchasePrice}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                   </div>
-              </div>
           </div>
       )}
 
@@ -1840,11 +2029,16 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
                                                <p className="font-bold text-sm text-indigo-900">{m.name}</p>
                                                <p className="text-xs text-slate-500">{m.dosage} • {m.frequency} • {m.duration}</p>
                                            </div>
-                                           {inventory.find(inv => inv.name.toLowerCase() === m.name.toLowerCase() && inv.stock > 0) ? (
-                                               <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold border border-green-200">In Stock</span>
-                                           ) : (
-                                               <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold border border-red-200">Check Stock</span>
-                                           )}
+                                           <div className="flex items-center gap-2">
+                                                {inventory.find(inv => inv.name.toLowerCase() === m.name.toLowerCase() && inv.stock > 0) ? (
+                                                    <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold border border-green-200">In Stock</span>
+                                                ) : (
+                                                    <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold border border-red-200">Check Stock</span>
+                                                )}
+                                                <button onClick={() => handlePrintLabel(m)} className="p-1 hover:bg-white rounded text-indigo-600" title="Print Label">
+                                                    <Tag className="w-4 h-4"/>
+                                                </button>
+                                           </div>
                                        </div>
                                    ))}
                                </div>
@@ -1930,6 +2124,9 @@ export const PharmacyDashboard: React.FC<PharmacyDashboardProps> = ({
               </div>
           </div>
       )}
+
+      {/* Hidden Label Printer */}
+      {printLabelData && <MedicineLabel data={printLabelData} pharmacyName={currentUser.clinicName || 'Pharmacy'} />}
 
       {selectedRx && (
           <PrescriptionModal 

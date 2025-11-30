@@ -1,9 +1,7 @@
-
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
-import { Medicine, Prescription, User, Patient, PrescriptionTemplate } from '../../types';
-import { Plus, Trash2, Send, BrainCircuit, FileText, AlertTriangle, Info, Video, User as UserIcon, Search, Link2, UserPlus, RotateCcw, Save, Download, KeyRound, Calendar, Repeat, X, CheckCircle, MapPin, Phone, Building2, Mic, Activity, Thermometer, Gauge } from 'lucide-react';
+import { Medicine, Prescription, User, Patient, PrescriptionTemplate, VerificationStatus } from '../../types';
+import { Plus, Trash2, Send, BrainCircuit, FileText, AlertTriangle, Info, Video, User as UserIcon, Search, Link2, UserPlus, RotateCcw, Save, Download, KeyRound, Calendar, Repeat, X, CheckCircle, MapPin, Phone, Building2, Mic, Activity, Thermometer, Gauge, ShieldCheck, CheckCircle2, Filter, ShieldAlert } from 'lucide-react';
 import { analyzePrescriptionSafety } from '../../services/geminiService';
 import { LOW_RISK_GENERIC_LIST, RESTRICTED_DRUGS } from '../../constants';
 import { dbService } from '../../services/db';
@@ -50,7 +48,8 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
       patientName: '',
       patientAge: 0,
       refills: 0,
-      vitals: { bp: '', pulse: '', temp: '', spo2: '', weight: '' }
+      vitals: { bp: '', pulse: '', temp: '', spo2: '', weight: '' },
+      linkedToAbha: false
     }
   });
 
@@ -90,10 +89,28 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
   // Voice Input State
   const [isListening, setIsListening] = useState<'DIAGNOSIS' | 'ADVICE' | null>(null);
 
-  // Filtered Autocomplete List - Filter out restricted drugs for safety
-  const safeMedicineList = LOW_RISK_GENERIC_LIST.filter(med => 
-    !RESTRICTED_DRUGS.some(restricted => med.toLowerCase().includes(restricted.toLowerCase()))
-  );
+  // Medicine Filtering State
+  const [medicineFilter, setMedicineFilter] = useState<'SAFE' | 'RESTRICTED' | 'ALL'>('SAFE');
+
+  // Filtered Autocomplete List - Filter out restricted drugs for safety by default
+  const medicineOptions = useMemo(() => {
+      const safeList = LOW_RISK_GENERIC_LIST.filter(med => 
+        !RESTRICTED_DRUGS.some(restricted => med.toLowerCase().includes(restricted.toLowerCase()))
+      );
+      
+      const restrictedList = RESTRICTED_DRUGS.map(d => `${d} [Restricted/Schedule H]`);
+
+      switch (medicineFilter) {
+          case 'SAFE':
+              return safeList.sort();
+          case 'RESTRICTED':
+              return restrictedList.sort();
+          case 'ALL':
+              return [...safeList, ...restrictedList].sort();
+          default:
+              return safeList;
+      }
+  }, [medicineFilter]);
 
   // New Patient State
   const [newPatient, setNewPatient] = useState<Partial<Patient>>({
@@ -103,9 +120,14 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
   const diagnosis = watch('diagnosis');
   const medicines = watch('medicines');
   const advice = watch('advice');
+  const linkedToAbha = watch('linkedToAbha');
   
   const myPatients = patients.filter(p => p.doctorId === currentUser.id);
-  const patientResults = myPatients.filter(p => p.fullName.toLowerCase().includes(patientSearch.toLowerCase()) || p.phone.includes(patientSearch));
+  const patientResults = myPatients.filter(p => 
+      p.fullName.toLowerCase().includes(patientSearch.toLowerCase()) || 
+      p.phone.includes(patientSearch) ||
+      (p.abhaNumber && p.abhaNumber.includes(patientSearch))
+  );
 
   // Pharmacy Filtering Logic
   const filteredPharmacies = verifiedPharmacies.filter(p => {
@@ -114,7 +136,8 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
           p.name.toLowerCase().includes(search) || 
           (p.clinicAddress || '').toLowerCase().includes(search) ||
           (p.city || '').toLowerCase().includes(search) ||
-          (p.pincode || '').includes(search)
+          (p.pincode || '').includes(search) ||
+          (p.phone || '').includes(search)
       );
   });
 
@@ -139,6 +162,13 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
       const birthDate = new Date(patient.dateOfBirth);
       const age = new Date().getFullYear() - birthDate.getFullYear();
       setValue('patientAge', age);
+      
+      // Auto toggle ABDM linking if patient has Verified ABHA
+      if (patient.isAbhaVerified) {
+          setValue('linkedToAbha', true);
+      } else {
+          setValue('linkedToAbha', false);
+      }
 
       setSelectedPatient(patient);
       setPatientSearch('');
@@ -404,12 +434,15 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
         status: 'SENT_TO_PHARMACY', // Standard status for signed Rx
         digitalSignatureToken: `SIG-${Date.now()}-${eSignToken}`, // Embed token in signature
         refills: data.refills ? Number(data.refills) : 0,
-        followUpDate: data.followUpDate
+        followUpDate: data.followUpDate,
+        linkedToAbha: data.linkedToAbha
     };
 
     onPrescriptionSent(newRx);
     
-    alert("Prescription Signed & Sent to Pharmacy Successfully.");
+    alert(data.linkedToAbha 
+        ? "Prescription Signed, Sent to Pharmacy & Linked to Patient's Health Locker (ABDM)." 
+        : "Prescription Signed & Sent to Pharmacy Successfully.");
     
     // Reset basic form state but keep doctor context
     setESignStep('IDLE');
@@ -419,15 +452,15 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
 
   return (
     <div className="bg-white rounded-lg shadow border border-slate-200">
-      <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50 gap-4">
+      <div className="p-4 sm:p-6 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50 gap-4">
         <div>
-            <h2 className="text-xl font-bold text-slate-800 flex items-center">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center">
                 <FileText className="mr-2 text-indigo-600"/> New e-Prescription
             </h2>
             <div className="flex gap-2 mt-1">
                  {/* Template Loader */}
                 <select 
-                    className="text-xs border border-slate-300 rounded px-2 py-1 bg-white"
+                    className="text-xs border border-slate-300 rounded px-2 py-1 bg-white max-w-[150px]"
                     onChange={(e) => handleLoadTemplate(e.target.value)}
                     defaultValue=""
                 >
@@ -437,14 +470,14 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
             </div>
         </div>
         
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
             {/* History Lookup Button/Input */}
             <div className="relative w-full sm:w-auto">
                 <div className="flex items-center bg-white border border-indigo-200 rounded-md px-3 py-1.5 shadow-sm">
                     <RotateCcw className="w-4 h-4 text-indigo-600 mr-2"/>
                     <input 
                         type="text"
-                        placeholder="Autofill from Patient Name..."
+                        placeholder="Autofill from Name..."
                         className="bg-transparent border-none text-xs focus:outline-none w-full sm:w-48 text-indigo-800 placeholder-indigo-400"
                         value={historySearch}
                         onChange={(e) => { setHistorySearch(e.target.value); setShowHistoryResults(true); }}
@@ -475,11 +508,11 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
                     </div>
                 )}
             </div>
-            <span className="hidden sm:inline text-xs bg-green-100 text-green-800 px-2 py-1 rounded border border-green-200 font-medium whitespace-nowrap">Telemedicine Compliant</span>
+            <span className="text-[10px] sm:text-xs bg-green-100 text-green-800 px-2 py-1 rounded border border-green-200 font-medium whitespace-nowrap">Telemedicine Compliant</span>
         </div>
       </div>
 
-      <form className="p-6 space-y-6">
+      <form className="p-4 sm:p-6 space-y-6">
         {/* Hidden Inputs to capture patient data in RHF data object */}
         <input type="hidden" {...register('patientName', { required: true })} />
         <input type="hidden" {...register('patientAge', { required: true, valueAsNumber: true })} />
@@ -501,30 +534,30 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
         </div>
 
         {/* PATIENT SELECTION SECTION */}
-        <div className="bg-white p-5 border border-slate-200 rounded-lg shadow-sm">
-             <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
-                <label className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center">
+        <div className="bg-white p-4 sm:p-5 border border-slate-200 rounded-lg shadow-sm">
+             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b border-slate-100 pb-3 gap-2">
+                <label className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center flex-wrap gap-2">
                     1. Select Patient
                     {selectedPatient && patientMode === 'SEARCH' && (
-                        <span className="ml-3 bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full border border-green-200 flex items-center font-bold">
-                            <Link2 className="w-3 h-3 mr-1"/> Linked to ID: {selectedPatient.id}
+                        <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full border border-green-200 flex items-center font-bold">
+                            <Link2 className="w-3 h-3 mr-1"/> Linked
                         </span>
                     )}
                 </label>
-                <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+                <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 w-full sm:w-auto">
                     <button 
                         type="button"
                         onClick={() => { setPatientMode('SEARCH'); setSelectedPatient(null); }}
-                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center ${patientMode === 'SEARCH' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center justify-center ${patientMode === 'SEARCH' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                     >
-                        <Search className="w-3 h-3 mr-1"/> Use Existing
+                        <Search className="w-3 h-3 mr-1"/> Existing
                     </button>
                     <button 
-                        type="button"
+                        type="button" 
                         onClick={() => { setPatientMode('CREATE'); setSelectedPatient(null); setValue('patientName', ''); }}
-                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center ${patientMode === 'CREATE' ? 'bg-white text-teal-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        className={`flex-1 sm:flex-none px-3 py-1.5 text-xs font-bold rounded-md transition-all flex items-center justify-center ${patientMode === 'CREATE' ? 'bg-white text-teal-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                     >
-                        <UserPlus className="w-3 h-3 mr-1"/> Create New
+                        <UserPlus className="w-3 h-3 mr-1"/> New
                     </button>
                 </div>
              </div>
@@ -539,7 +572,7 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
                             <input 
                                 type="text"
                                 className="block w-full pl-10 pr-4 py-2 border border-slate-300 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                                placeholder="Search your patient list..."
+                                placeholder="Search by name, phone or ABHA ID..."
                                 value={patientSearch}
                                 onChange={e => { setPatientSearch(e.target.value); setShowPatientResults(true); }}
                                 onFocus={() => setShowPatientResults(true)}
@@ -555,7 +588,10 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
                                                 className="w-full text-left px-4 py-3 hover:bg-indigo-50 text-sm border-b border-slate-50 last:border-0 flex justify-between items-center group"
                                             >
                                                 <div>
-                                                    <span className="font-bold text-slate-800 group-hover:text-indigo-700 block">{p.fullName}</span>
+                                                    <span className="font-bold text-slate-800 group-hover:text-indigo-700 block flex items-center">
+                                                        {p.fullName}
+                                                        {p.isAbhaVerified && <ShieldCheck className="w-3 h-3 ml-1 text-green-600"/>}
+                                                    </span>
                                                     <span className="text-xs text-slate-500">{p.gender}, {new Date().getFullYear() - new Date(p.dateOfBirth).getFullYear()} Yrs</span>
                                                 </div>
                                                 <span className="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded group-hover:bg-white">{p.phone}</span>
@@ -574,11 +610,18 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
                                     {selectedPatient.fullName.charAt(0)}
                                 </div>
                                 <div>
-                                    <p className="text-sm font-bold text-slate-900">{selectedPatient.fullName}</p>
+                                    <div className="flex items-center gap-1">
+                                        <p className="text-sm font-bold text-slate-900">{selectedPatient.fullName}</p>
+                                        {selectedPatient.isAbhaVerified && (
+                                            <span className="bg-green-100 text-green-700 text-[10px] px-1.5 rounded font-bold border border-green-200 flex items-center">
+                                                <ShieldCheck className="w-3 h-3 mr-1"/> ABHA
+                                            </span>
+                                        )}
+                                    </div>
                                     <p className="text-xs text-slate-500">{selectedPatient.gender}, {selectedPatient.phone}</p>
                                 </div>
                             </div>
-                            <button type="button" onClick={() => { setSelectedPatient(null); setValue('patientName', ''); }} className="text-xs text-red-600 hover:underline font-medium">Change</button>
+                            <button type="button" onClick={() => { setSelectedPatient(null); setValue('patientName', ''); setValue('linkedToAbha', false); }} className="text-xs text-red-600 hover:underline font-medium">Change</button>
                         </div>
                     )}
                  </div>
@@ -635,23 +678,23 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
           <div className="bg-slate-50 p-3 rounded-md border border-slate-200 mb-4">
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   <div>
-                      <label className="text-xs font-bold text-slate-500 mb-1 flex items-center"><Activity className="w-3 h-3 mr-1"/> BP (mmHg)</label>
+                      <label className="text-xs font-bold text-slate-500 mb-1 flex items-center"><Activity className="w-3 h-3 mr-1"/> BP</label>
                       <input {...register('vitals.bp')} className="w-full border p-1.5 text-sm rounded" placeholder="120/80" />
                   </div>
                   <div>
-                      <label className="text-xs font-bold text-slate-500 mb-1 flex items-center"><Activity className="w-3 h-3 mr-1"/> Pulse (bpm)</label>
+                      <label className="text-xs font-bold text-slate-500 mb-1 flex items-center"><Activity className="w-3 h-3 mr-1"/> Pulse</label>
                       <input {...register('vitals.pulse')} className="w-full border p-1.5 text-sm rounded" placeholder="72" />
                   </div>
                   <div>
-                      <label className="text-xs font-bold text-slate-500 mb-1 flex items-center"><Thermometer className="w-3 h-3 mr-1"/> Temp (°F)</label>
+                      <label className="text-xs font-bold text-slate-500 mb-1 flex items-center"><Thermometer className="w-3 h-3 mr-1"/> Temp</label>
                       <input {...register('vitals.temp')} className="w-full border p-1.5 text-sm rounded" placeholder="98.6" />
                   </div>
                   <div>
-                      <label className="text-xs font-bold text-slate-500 mb-1 flex items-center"><Gauge className="w-3 h-3 mr-1"/> SpO2 (%)</label>
+                      <label className="text-xs font-bold text-slate-500 mb-1 flex items-center"><Gauge className="w-3 h-3 mr-1"/> SpO2</label>
                       <input {...register('vitals.spo2')} className="w-full border p-1.5 text-sm rounded" placeholder="98" />
                   </div>
                   <div>
-                      <label className="text-xs font-bold text-slate-500 mb-1 flex items-center"><Activity className="w-3 h-3 mr-1"/> Weight (kg)</label>
+                      <label className="text-xs font-bold text-slate-500 mb-1 flex items-center"><Activity className="w-3 h-3 mr-1"/> Wt (kg)</label>
                       <input {...register('vitals.weight')} className="w-full border p-1.5 text-sm rounded" placeholder="70" />
                   </div>
               </div>
@@ -678,15 +721,43 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
 
         {/* Medicines */}
         <div>
-            <div className="flex justify-between items-center mb-3">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
                 <label className="block text-sm font-bold text-slate-700 uppercase tracking-wide">3. Medication (Rx)</label>
-                <button type="button" onClick={() => append({ name: '', dosage: '', frequency: '', duration: '', instructions: '' })} className="text-sm text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-md font-medium flex items-center shadow-sm">
-                    <Plus className="w-4 h-4 mr-1"/> Add Drug
-                </button>
+                
+                <div className="flex items-center flex-wrap gap-2 w-full sm:w-auto">
+                    {/* Medicine Filters */}
+                    <div className="flex bg-slate-100 p-1 rounded-md border border-slate-200">
+                         <button 
+                            type="button"
+                            onClick={() => setMedicineFilter('SAFE')}
+                            className={`px-3 py-1 text-[10px] sm:text-xs rounded font-bold transition-all flex items-center ${medicineFilter === 'SAFE' ? 'bg-green-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                         >
+                             <CheckCircle2 className="w-3 h-3 mr-1"/> Safe
+                         </button>
+                         <button 
+                            type="button"
+                            onClick={() => setMedicineFilter('RESTRICTED')}
+                            className={`px-3 py-1 text-[10px] sm:text-xs rounded font-bold transition-all flex items-center ${medicineFilter === 'RESTRICTED' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                         >
+                             <ShieldAlert className="w-3 h-3 mr-1"/> Restricted
+                         </button>
+                         <button 
+                            type="button"
+                            onClick={() => setMedicineFilter('ALL')}
+                            className={`px-3 py-1 text-[10px] sm:text-xs rounded font-bold transition-all ${medicineFilter === 'ALL' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+                         >
+                             All
+                         </button>
+                    </div>
+
+                    <button type="button" onClick={() => append({ name: '', dosage: '', frequency: '', duration: '', instructions: '' })} className="ml-auto sm:ml-2 text-sm text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-md font-medium flex items-center shadow-sm">
+                        <Plus className="w-4 h-4 mr-1"/> Add Drug
+                    </button>
+                </div>
             </div>
             
             <datalist id="common-medicines">
-                {safeMedicineList.map(med => <option key={med} value={med} />)}
+                {medicineOptions.map(med => <option key={med} value={med} />)}
             </datalist>
 
             <div className="space-y-4">
@@ -699,8 +770,17 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
                     const fullDirection = `${currentDosage ? currentDosage + ', ' : ''}${freqDesc || currentFreq || '...'}${currentDur ? ' for ' + currentDur : ''}`;
 
                     return (
-                        <div key={field.id} className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
-                            <div className="grid grid-cols-12 gap-3 items-start">
+                        <div key={field.id} className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm relative">
+                            {/* Delete Button moved to absolute position on mobile to save vertical space */}
+                            <button 
+                                type="button" 
+                                onClick={() => remove(index)} 
+                                className="absolute top-2 right-2 text-red-400 hover:text-red-700 p-1"
+                            >
+                                <Trash2 className="w-4 h-4"/>
+                            </button>
+
+                            <div className="grid grid-cols-12 gap-3 items-end sm:items-start">
                                 <div className="col-span-12 sm:col-span-4">
                                     <label className="text-xs font-bold text-slate-500 mb-1 block">Medicine Name</label>
                                     <input 
@@ -710,29 +790,25 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
                                       className={`w-full text-sm rounded border p-2 font-medium ${errors.medicines?.[index]?.name ? 'border-red-500' : 'border-slate-300'}`}
                                     />
                                 </div>
-                                <div className="col-span-4 sm:col-span-2">
+                                <div className="col-span-6 sm:col-span-2">
                                      <label className="text-xs font-bold text-slate-500 mb-1 block">Dose</label>
                                      <input {...register(`medicines.${index}.dosage` as const)} placeholder="500mg" className="w-full text-sm border-slate-300 rounded border p-2" />
                                 </div>
-                                <div className="col-span-4 sm:col-span-2">
-                                     <label className="text-xs font-bold text-slate-500 mb-1 block">Freq (1-0-1)</label>
+                                <div className="col-span-6 sm:col-span-2">
+                                     <label className="text-xs font-bold text-slate-500 mb-1 block">Freq</label>
                                      <input 
                                         {...register(`medicines.${index}.frequency` as const)} 
-                                        placeholder="BD / OD" 
+                                        placeholder="1-0-1" 
                                         className="w-full text-sm border-slate-300 rounded border p-2" 
-                                        title="Use codes like 1-0-1, BD, OD"
                                      />
                                 </div>
-                                <div className="col-span-4 sm:col-span-2">
+                                <div className="col-span-12 sm:col-span-2">
                                      <label className="text-xs font-bold text-slate-500 mb-1 block">Duration</label>
                                      <input {...register(`medicines.${index}.duration` as const)} placeholder="5 days" className="w-full text-sm border-slate-300 rounded border p-2" />
                                 </div>
-                                <div className="col-span-12 sm:col-span-1 flex justify-end mt-6">
-                                    <button type="button" onClick={() => remove(index)} className="text-red-500 hover:text-red-700 p-2 bg-white rounded border border-slate-200 hover:bg-red-50 transition-colors"><Trash2 className="w-4 h-4"/></button>
-                                </div>
                             </div>
                             
-                            <div className="grid grid-cols-12 gap-4 mt-3">
+                            <div className="grid grid-cols-12 gap-3 mt-3">
                                 <div className="col-span-12 sm:col-span-6">
                                     <input {...register(`medicines.${index}.instructions` as const)} placeholder="Special Instructions (e.g. After food)" className="w-full text-xs border-slate-300 rounded border p-2 text-slate-600 bg-white" />
                                 </div>
@@ -790,7 +866,7 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
 
         <div>
             <label className="block text-sm font-bold text-slate-700 uppercase tracking-wide">4. Additional Advice & Follow-up</label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3 mt-2">
                 <div className="sm:col-span-2 relative">
                     <textarea 
                         {...register('advice')} 
@@ -827,8 +903,8 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
             ) : (
                 <div className="flex items-center gap-2 bg-slate-100 p-2 rounded">
                     <input 
-                        className="text-xs border p-1 rounded" 
-                        placeholder="Template Name (e.g. Viral Fever)"
+                        className="text-xs border p-1 rounded w-32 sm:w-auto" 
+                        placeholder="Template Name"
                         value={templateName}
                         onChange={e => setTemplateName(e.target.value)}
                     />
@@ -839,22 +915,47 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
         </div>
 
         {/* Compliance & Verification */}
-        <div className="bg-yellow-50 p-4 rounded-md border border-yellow-200">
-            <h4 className="text-sm font-bold text-yellow-800 mb-2 flex items-center">
-                <Video className="w-4 h-4 mr-2"/> Telemedicine Compliance
-            </h4>
-            <div className="flex items-start">
-                <div className="flex items-center h-5">
-                    <input
-                        id="patient-verify"
-                        type="checkbox"
-                        checked={isPatientVerified}
-                        onChange={(e) => setIsPatientVerified(e.target.checked)}
-                        className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
-                    />
+        <div className="space-y-4">
+            <div className="bg-yellow-50 p-4 rounded-md border border-yellow-200">
+                <h4 className="text-sm font-bold text-yellow-800 mb-2 flex items-center">
+                    <Video className="w-4 h-4 mr-2"/> Telemedicine Compliance
+                </h4>
+                <div className="flex items-start">
+                    <div className="flex items-center h-5">
+                        <input
+                            id="patient-verify"
+                            type="checkbox"
+                            checked={isPatientVerified}
+                            onChange={(e) => setIsPatientVerified(e.target.checked)}
+                            className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                        />
+                    </div>
+                    <div className="ml-2 text-sm">
+                        <label htmlFor="patient-verify" className="font-medium text-slate-700">I certify that I have verified the patient's identity via video/audio interaction as per Telemedicine Practice Guidelines 2020.</label>
+                    </div>
                 </div>
-                <div className="ml-2 text-sm">
-                    <label htmlFor="patient-verify" className="font-medium text-slate-700">I certify that I have verified the patient's identity via video/audio interaction as per Telemedicine Practice Guidelines 2020.</label>
+            </div>
+
+            {/* ABHA Linking Option */}
+            <div className={`p-4 rounded-md border transition-colors ${linkedToAbha ? 'bg-orange-50 border-orange-200' : 'bg-slate-50 border-slate-200'}`}>
+                <h4 className={`text-sm font-bold mb-2 flex items-center ${linkedToAbha ? 'text-orange-800' : 'text-slate-600'}`}>
+                    <ShieldCheck className="w-4 h-4 mr-2"/> Health Locker Integration (ABDM)
+                </h4>
+                <div className="flex items-start">
+                    <div className="flex items-center h-5">
+                        <input
+                            id="abha-link"
+                            type="checkbox"
+                            {...register('linkedToAbha')}
+                            className="focus:ring-orange-500 h-4 w-4 text-orange-600 border-gray-300 rounded"
+                        />
+                    </div>
+                    <div className="ml-2 text-sm">
+                        <label htmlFor="abha-link" className="font-medium text-slate-700">
+                            Push this prescription to Patient's Health Locker (PHR App).
+                            {selectedPatient && !selectedPatient.isAbhaVerified && <span className="block text-xs text-orange-600 mt-1 font-bold">Note: Patient ABHA is not verified. Link may fail.</span>}
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>
@@ -924,9 +1025,15 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
                                                 {p.clinicAddress}, {p.city}, {p.state} {p.pincode}
                                             </p>
                                         </div>
-                                        <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-1 rounded group-hover:bg-indigo-100">
-                                            Select
-                                        </span>
+                                        {p.verificationStatus === VerificationStatus.DIRECTORY ? (
+                                            <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-1 rounded border border-slate-200 font-bold whitespace-nowrap">
+                                                Directory Listing
+                                            </span>
+                                        ) : (
+                                            <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-1 rounded group-hover:bg-indigo-100 flex items-center whitespace-nowrap">
+                                                <CheckCircle2 className="w-3 h-3 mr-1"/> Verified Partner
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             ))

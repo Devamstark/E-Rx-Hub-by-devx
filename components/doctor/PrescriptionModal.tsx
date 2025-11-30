@@ -1,10 +1,7 @@
-
-
-import React from 'react';
-import { Prescription } from '../../types';
-import { X, Printer, CheckCircle, FileText, ClipboardList, Share2, AlertOctagon, Repeat, Calendar, Activity } from 'lucide-react';
-import ReactDOMServer from 'react-dom/server';
-import { PrintLayout } from '../ui/PrintLayout';
+import React, { useState } from 'react';
+import { Prescription, Patient } from '../../types';
+import { X, Printer, CheckCircle, FileText, ClipboardList, Share2, AlertOctagon, Repeat, Calendar, Activity, ArrowLeft } from 'lucide-react';
+import { InsuranceReadyRxPrintLayout } from '../ui/InsuranceReadyRxPrintLayout';
 
 interface PrescriptionModalProps {
   prescription: Prescription;
@@ -19,6 +16,7 @@ export const PrescriptionModal: React.FC<PrescriptionModalProps> = ({
   onDispense, 
   isPharmacy = false 
 }) => {
+  const [showPrintLayout, setShowPrintLayout] = useState(false);
 
   // Use snapshot details if available, else fallback to legacy/simple data
   const docName = prescription.doctorDetails?.name || prescription.doctorName;
@@ -26,41 +24,12 @@ export const PrescriptionModal: React.FC<PrescriptionModalProps> = ({
   const docSpecialty = prescription.doctorDetails?.specialty;
   const clinicName = prescription.doctorDetails?.clinicName || 'DevXWorld Network';
 
-  const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      const content = ReactDOMServer.renderToString(<PrintLayout rx={prescription} />);
-      
-      // Set title for print header/footer
-      const printTitle = `Sent by DevXWorld - ${prescription.id}`;
-
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>${printTitle}</title>
-            <script src="https://cdn.tailwindcss.com"></script>
-            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
-            <style>
-              @media print {
-                body { -webkit-print-color-adjust: exact; }
-                @page { margin: 10mm; size: A4; }
-              }
-              .font-script { font-family: 'Dancing Script', cursive; }
-            </style>
-          </head>
-          <body class="bg-white">
-            ${content}
-            <script>
-              window.onload = () => { window.print(); window.close(); };
-            </script>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-    }
-  };
-
   const handleShare = () => {
+    // Generate link based on current domain origin
+    const origin = window.location.origin;
+    // Use query param mode to ensure index.html loads on static hosts, avoiding 404
+    const trackingLink = `${origin}/?mode=verify&rx_id=${prescription.id}`;
+
     const text = `*${clinicName}*
 Dr. ${docName} (${docQual}${docSpecialty ? ' - ' + docSpecialty : ''})
 
@@ -72,12 +41,60 @@ ${prescription.medicines.map(m => `- ${m.name} (${m.dosage}) | ${m.frequency}`).
 
 *Follow-up:* ${prescription.followUpDate || 'PRN'}
 
-*Link:* https://devxworld.erx/track/${prescription.id}
+*Verify & Track:* ${trackingLink}
     `.trim();
 
     const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
+
+  // Reconstruct minimal patient object for print layout if not available fully
+  const printPatient: Patient = {
+      id: prescription.patientId || '',
+      fullName: prescription.patientName,
+      gender: prescription.patientGender,
+      dateOfBirth: '', // Derived from age usually
+      phone: '',
+      address: '',
+      doctorId: prescription.doctorId,
+      allergies: [],
+      chronicConditions: [],
+      registeredAt: ''
+  };
+
+  // Reconstruct doctor object for print layout
+  const printDoctor = prescription.doctorDetails || {
+      name: docName,
+      qualifications: docQual,
+      specialty: docSpecialty,
+      clinicName: clinicName,
+      clinicAddress: '',
+      phone: '',
+      licenseNumber: 'Pending'
+  };
+
+  if (showPrintLayout) {
+      return (
+          <div className="fixed inset-0 bg-white z-[60] overflow-y-auto">
+              <div className="sticky top-0 z-10 bg-slate-900 text-white px-4 py-2 flex items-center justify-between no-print shadow-md">
+                  <div className="flex items-center">
+                      <button onClick={() => setShowPrintLayout(false)} className="mr-3 p-1 hover:bg-slate-700 rounded-full">
+                          <ArrowLeft className="w-5 h-5"/>
+                      </button>
+                      <span className="font-bold text-sm">Return to Digital View</span>
+                  </div>
+                  <button onClick={onClose} className="p-1 hover:bg-slate-700 rounded-full">
+                      <X className="w-5 h-5"/>
+                  </button>
+              </div>
+              <InsuranceReadyRxPrintLayout 
+                  prescription={prescription} 
+                  patient={printPatient} 
+                  doctor={printDoctor}
+              />
+          </div>
+      );
+  }
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in duration-200">
@@ -100,13 +117,13 @@ ${prescription.medicines.map(m => `- ${m.name} (${m.dosage}) | ${m.frequency}`).
                 <Share2 className="w-4 h-4 mr-2" /> Share
             </button>
             <button 
-                onClick={handlePrint}
-                className="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded text-sm font-medium flex items-center transition-colors"
-                title="Print PDF"
+                onClick={() => setShowPrintLayout(true)}
+                className="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded text-sm font-medium flex items-center transition-colors border border-white/20"
+                title="Official Print Layout"
             >
-                <Printer className="w-4 h-4 mr-2" /> Print
+                <Printer className="w-4 h-4 mr-2" /> Print Official
             </button>
-            <button onClick={onClose} className="bg-white/10 hover:bg-white/20 text-white p-1.5 rounded-full transition-colors">
+            <button onClick={onClose} className="bg-white/10 hover:bg-white/20 text-white p-1.5 rounded-full transition-colors ml-2">
               <X className="w-5 h-5"/>
             </button>
           </div>

@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { Patient, Prescription, UserDocument } from '../../types';
-import { Plus, Search, User, Calendar, Phone, MapPin, HeartPulse, AlertTriangle, Edit2, Save, X, FileText, ArrowLeft, ExternalLink, Clock, CheckCircle, Stethoscope, Activity } from 'lucide-react';
+import { Patient, Prescription, LabReferral } from '../../types';
+import { Plus, Search, User, Phone, MapPin, HeartPulse, AlertTriangle, Edit2, Save, X, FileText, ArrowLeft, ExternalLink, ShieldCheck, Loader2, Stethoscope, Activity, Microscope, CheckCircle2, Clock } from 'lucide-react';
 import { PrescriptionModal } from './PrescriptionModal';
 
 interface PatientManagerProps {
@@ -10,21 +10,35 @@ interface PatientManagerProps {
     onAddPatient: (p: Patient) => void;
     onUpdatePatient: (p: Patient) => void;
     prescriptions?: Prescription[];
+    labReferrals?: LabReferral[];
 }
 
-export const PatientManager: React.FC<PatientManagerProps> = ({ doctorId, patients, onAddPatient, onUpdatePatient, prescriptions = [] }) => {
+export const PatientManager: React.FC<PatientManagerProps> = ({ 
+    doctorId, 
+    patients, 
+    onAddPatient, 
+    onUpdatePatient, 
+    prescriptions = [],
+    labReferrals = []
+}) => {
     const [isAdding, setIsAdding] = useState(false);
     const [viewingPatient, setViewingPatient] = useState<Patient | null>(null);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedHistoryRx, setSelectedHistoryRx] = useState<Prescription | null>(null);
+    const [viewingReport, setViewingReport] = useState<LabReferral | null>(null);
+    
+    // ABHA Verification State
+    const [verifyingAbha, setVerifyingAbha] = useState(false);
+    const [abhaVerified, setAbhaVerified] = useState(false);
     
     // Filter patients for this doctor
     const myPatients = patients.filter(p => p.doctorId === doctorId);
     
     const filteredPatients = myPatients.filter(p => 
         p.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.phone.includes(searchTerm)
+        p.phone.includes(searchTerm) ||
+        (p.abhaAddress && p.abhaAddress.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     const initialFormState: Patient = {
@@ -36,6 +50,9 @@ export const PatientManager: React.FC<PatientManagerProps> = ({ doctorId, patien
         phone: '',
         address: '',
         emergencyContact: '',
+        abhaNumber: '',
+        abhaAddress: '',
+        isAbhaVerified: false,
         bloodGroup: '',
         height: '',
         weight: '',
@@ -58,12 +75,28 @@ export const PatientManager: React.FC<PatientManagerProps> = ({ doctorId, patien
         setFormData(patient);
         setEditingId(patient.id);
         setIsAdding(true);
+        setAbhaVerified(!!patient.isAbhaVerified);
         setViewingPatient(null); // Switch from view to edit
     };
 
     const handleViewProfile = (patient: Patient) => {
         setViewingPatient(patient);
         setIsAdding(false);
+    };
+
+    const handleVerifyAbha = () => {
+        if (!formData.abhaNumber && !formData.abhaAddress) {
+            alert("Please enter ABHA Number or Address");
+            return;
+        }
+        setVerifyingAbha(true);
+        // Simulate NHA API Call
+        setTimeout(() => {
+            setVerifyingAbha(false);
+            setAbhaVerified(true);
+            setFormData(prev => ({ ...prev, isAbhaVerified: true }));
+            alert("ABHA Verified Successfully with National Health Authority.");
+        }, 1500);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -82,6 +115,7 @@ export const PatientManager: React.FC<PatientManagerProps> = ({ doctorId, patien
         setIsAdding(false);
         setEditingId(null);
         setFormData(initialFormState);
+        setAbhaVerified(false);
     };
 
     const addAllergy = () => {
@@ -102,6 +136,10 @@ export const PatientManager: React.FC<PatientManagerProps> = ({ doctorId, patien
         return prescriptions.filter(rx => rx.patientId === patient.id || (rx.patientName && rx.patientName.toLowerCase() === patient.fullName.toLowerCase()));
     };
 
+    const getPatientLabs = (patient: Patient) => {
+        return labReferrals.filter(l => l.patientId === patient.id);
+    };
+
     // --- ADD / EDIT FORM ---
     if (isAdding) {
         return (
@@ -117,6 +155,51 @@ export const PatientManager: React.FC<PatientManagerProps> = ({ doctorId, patien
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
+                    {/* SECTION: ABDM Integration */}
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                        <h3 className="text-sm font-bold text-orange-800 uppercase mb-3 flex items-center">
+                            <ShieldCheck className="w-4 h-4 mr-1"/> Ayushman Bharat Digital Mission (ABDM)
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                            <div>
+                                <label className="block text-xs font-medium text-slate-700 mb-1">ABHA Number (14-digits)</label>
+                                <input 
+                                    className="w-full border border-orange-200 rounded p-2 text-sm focus:ring-orange-500" 
+                                    value={formData.abhaNumber || ''}
+                                    onChange={e => setFormData({...formData, abhaNumber: e.target.value.replace(/\D/g,'').slice(0,14)})}
+                                    placeholder="XX-XXXX-XXXX-XXXX"
+                                    maxLength={14}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-slate-700 mb-1">ABHA Address (PHR)</label>
+                                <input 
+                                    className="w-full border border-orange-200 rounded p-2 text-sm focus:ring-orange-500" 
+                                    value={formData.abhaAddress || ''}
+                                    onChange={e => setFormData({...formData, abhaAddress: e.target.value})}
+                                    placeholder="username@abdm"
+                                />
+                            </div>
+                            <div>
+                                {abhaVerified ? (
+                                    <button type="button" disabled className="w-full flex items-center justify-center bg-green-100 text-green-700 font-bold py-2 rounded border border-green-200 cursor-default">
+                                        <CheckCircle2 className="w-4 h-4 mr-2"/> Verified
+                                    </button>
+                                ) : (
+                                    <button 
+                                        type="button" 
+                                        onClick={handleVerifyAbha}
+                                        disabled={verifyingAbha}
+                                        className="w-full bg-orange-600 text-white font-medium py-2 rounded hover:bg-orange-700 flex items-center justify-center"
+                                    >
+                                        {verifyingAbha ? <Loader2 className="w-4 h-4 animate-spin mr-2"/> : <ShieldCheck className="w-4 h-4 mr-2"/>}
+                                        Verify Identity
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
                     {/* SECTION 1: Personal */}
                     <div>
                         <h3 className="text-sm font-bold text-slate-500 uppercase mb-3 flex items-center"><User className="w-4 h-4 mr-1"/> Personal Information</h3>
@@ -246,6 +329,7 @@ export const PatientManager: React.FC<PatientManagerProps> = ({ doctorId, patien
     // --- VIEW DETAILS MODE (Profile) ---
     if (viewingPatient) {
         const patientRx = getPatientPrescriptions(viewingPatient);
+        const patientLabs = getPatientLabs(viewingPatient);
         
         return (
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 animate-in fade-in slide-in-from-right-4">
@@ -260,7 +344,13 @@ export const PatientManager: React.FC<PatientManagerProps> = ({ doctorId, patien
                                 <User className="w-4 h-4"/>
                                 <span>{viewingPatient.gender}, {new Date().getFullYear() - new Date(viewingPatient.dateOfBirth).getFullYear()} Years</span>
                                 <span className="w-1 h-1 rounded-full bg-slate-400"></span>
-                                <span className="font-mono text-xs bg-slate-200 px-2 rounded">ID: {viewingPatient.id}</span>
+                                {viewingPatient.isAbhaVerified ? (
+                                    <span className="flex items-center text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold border border-green-200">
+                                        <ShieldCheck className="w-3 h-3 mr-1"/> ABDM Linked
+                                    </span>
+                                ) : (
+                                    <span className="font-mono text-xs bg-slate-200 px-2 rounded">ID: {viewingPatient.id}</span>
+                                )}
                             </p>
                         </div>
                     </div>
@@ -285,16 +375,22 @@ export const PatientManager: React.FC<PatientManagerProps> = ({ doctorId, patien
                                 <p className="text-sm text-slate-700 flex items-start"><MapPin className="w-3 h-3 mr-2 text-slate-400 mt-1"/> {viewingPatient.address}</p>
                             </div>
                             <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
+                                <p className="text-xs text-slate-500 font-bold uppercase mb-1">ABDM Profile</p>
+                                <div className="space-y-1">
+                                    <p className="text-sm text-slate-900"><span className="text-slate-500 text-xs">ABHA No:</span> {viewingPatient.abhaNumber || 'Not Linked'}</p>
+                                    <p className="text-sm text-slate-900"><span className="text-slate-500 text-xs">Address:</span> {viewingPatient.abhaAddress || '-'}</p>
+                                    <p className="text-xs mt-1">
+                                        {viewingPatient.isAbhaVerified ? <span className="text-green-600 font-bold">● Verified</span> : <span className="text-amber-500">● Unverified</span>}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
                                 <p className="text-xs text-slate-500 font-bold uppercase mb-1">Physical Vitals</p>
                                 <div className="grid grid-cols-2 gap-2 text-sm">
                                     <div><span className="text-slate-500">Height:</span> <span className="font-medium">{viewingPatient.height || '-'} cm</span></div>
                                     <div><span className="text-slate-500">Weight:</span> <span className="font-medium">{viewingPatient.weight || '-'} kg</span></div>
                                     <div><span className="text-slate-500">Blood:</span> <span className="font-medium text-red-600">{viewingPatient.bloodGroup || '-'}</span></div>
                                 </div>
-                            </div>
-                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
-                                <p className="text-xs text-slate-500 font-bold uppercase mb-1">Emergency Contact</p>
-                                <p className="text-sm font-medium text-slate-900">{viewingPatient.emergencyContact || 'Not Provided'}</p>
                             </div>
                         </div>
                     </div>
@@ -396,6 +492,77 @@ export const PatientManager: React.FC<PatientManagerProps> = ({ doctorId, patien
                             </table>
                         </div>
                     </div>
+
+                    {/* SECTION 4: LAB REPORTS */}
+                    <div>
+                        <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-2">
+                            <h3 className="text-sm font-bold text-slate-500 uppercase flex items-center">
+                                <Microscope className="w-4 h-4 mr-2 text-teal-600"/> 4. Lab & Diagnostic Reports
+                            </h3>
+                            <span className="text-xs bg-teal-50 text-teal-700 px-2 py-1 rounded-full font-bold border border-teal-100">
+                                {patientLabs.length} Reports
+                            </span>
+                        </div>
+
+                        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+                            <table className="min-w-full divide-y divide-slate-200">
+                                <thead className="bg-slate-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Date</th>
+                                        <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Test Name</th>
+                                        <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Lab / Center</th>
+                                        <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Status</th>
+                                        <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Report</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {patientLabs.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                                                <Microscope className="w-8 h-8 mx-auto text-slate-300 mb-2"/>
+                                                No lab reports attached.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        patientLabs.map(lab => (
+                                            <tr key={lab.id} className="hover:bg-slate-50">
+                                                <td className="px-6 py-4 text-sm text-slate-700 font-medium">
+                                                    {new Date(lab.date).toLocaleDateString()}
+                                                </td>
+                                                <td className="px-6 py-4 text-sm font-bold text-slate-800">
+                                                    {lab.testName}
+                                                </td>
+                                                <td className="px-6 py-4 text-sm text-slate-600">
+                                                    {lab.labName || 'Any Lab'}
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {lab.status === 'COMPLETED' ? (
+                                                        <span className="text-[10px] bg-green-50 text-green-700 px-2 py-1 rounded-full font-bold border border-green-200 flex items-center w-max">
+                                                            <CheckCircle2 className="w-3 h-3 mr-1"/> Ready
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[10px] bg-amber-50 text-amber-700 px-2 py-1 rounded-full font-bold border border-amber-200 flex items-center w-max">
+                                                            <Clock className="w-3 h-3 mr-1"/> Pending
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    {lab.status === 'COMPLETED' && (
+                                                        <button 
+                                                            onClick={() => setViewingReport(lab)}
+                                                            className="text-teal-600 hover:text-teal-800 text-xs font-bold border border-teal-100 hover:bg-teal-50 px-3 py-1.5 rounded transition-colors inline-flex items-center"
+                                                        >
+                                                            <FileText className="w-3 h-3 mr-1"/> View
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Modal for History Rx */}
@@ -404,6 +571,73 @@ export const PatientManager: React.FC<PatientManagerProps> = ({ doctorId, patien
                         prescription={selectedHistoryRx} 
                         onClose={() => setSelectedHistoryRx(null)} 
                     />
+                )}
+
+                {/* Modal for Report Viewer */}
+                {viewingReport && (
+                    <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95">
+                            <div className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
+                                <div>
+                                    <h3 className="font-bold flex items-center"><FileText className="w-5 h-5 mr-2"/> Diagnostic Report</h3>
+                                    <p className="text-xs text-slate-400 font-mono mt-1">REF: {viewingReport.id}</p>
+                                </div>
+                                <button onClick={() => setViewingReport(null)} className="text-slate-400 hover:text-white"><X className="w-6 h-6"/></button>
+                            </div>
+                            <div className="p-8 bg-white">
+                                <div className="border-b-2 border-slate-800 pb-4 mb-6 flex justify-between items-end">
+                                     <div>
+                                         <h2 className="text-2xl font-bold text-slate-900 uppercase">{viewingReport.labName || 'Diagnostic Center'}</h2>
+                                         <p className="text-sm text-slate-500">Pathology & Radiology Services</p>
+                                     </div>
+                                     <div className="text-right text-sm">
+                                         <p><span className="font-bold text-slate-600">Patient:</span> {viewingReport.patientName}</p>
+                                         <p><span className="font-bold text-slate-600">Date:</span> {new Date().toLocaleDateString()}</p>
+                                     </div>
+                                </div>
+
+                                <div className="mb-6">
+                                    <h4 className="font-bold text-slate-800 mb-2 uppercase text-sm border-b border-slate-200 pb-1">Test Results: {viewingReport.testName}</h4>
+                                    <div className="bg-slate-50 p-4 rounded border border-slate-100 font-mono text-sm space-y-2">
+                                        <div className="flex justify-between border-b border-slate-200 pb-1 mb-1 font-bold text-slate-500">
+                                            <span>PARAMETER</span>
+                                            <span>RESULT</span>
+                                            <span>REF RANGE</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span>Haemoglobin</span>
+                                            <span className="font-bold">13.5 g/dL</span>
+                                            <span className="text-slate-500">12.0 - 15.0</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span>Total WBC</span>
+                                            <span className="font-bold">6,500 /cumm</span>
+                                            <span className="text-slate-500">4000 - 10000</span>
+                                        </div>
+                                        <div className="mt-4 pt-2 border-t border-dashed border-slate-300 text-xs italic text-slate-500">
+                                            Digital Report. {viewingReport.reportUrl === 'mock_report.pdf' ? '(Simulation Data)' : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="text-center">
+                                    {viewingReport.reportUrl && viewingReport.reportUrl !== 'mock_report.pdf' && (
+                                        <a 
+                                            href={viewingReport.reportUrl} 
+                                            target="_blank" 
+                                            rel="noreferrer"
+                                            className="bg-indigo-600 text-white px-6 py-2 rounded font-bold hover:bg-indigo-700 inline-block mr-2"
+                                        >
+                                            Download Original PDF
+                                        </a>
+                                    )}
+                                    <button onClick={() => setViewingReport(null)} className="bg-slate-100 text-slate-700 px-6 py-2 rounded font-bold hover:bg-slate-200 inline-block">
+                                        Close Viewer
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 )}
             </div>
         );
@@ -417,7 +651,7 @@ export const PatientManager: React.FC<PatientManagerProps> = ({ doctorId, patien
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4"/>
                     <input 
                         className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" 
-                        placeholder="Search by Name or Phone..."
+                        placeholder="Search by Name, Phone, or ABHA..."
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                     />
@@ -452,14 +686,25 @@ export const PatientManager: React.FC<PatientManagerProps> = ({ doctorId, patien
                                     {patient.fullName.charAt(0)}
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-slate-800 text-base">{patient.fullName}</h3>
+                                    <div className="flex items-center gap-1">
+                                        <h3 className="font-bold text-slate-800 text-base">{patient.fullName}</h3>
+                                        {patient.isAbhaVerified && (
+                                            <span title="ABDM Verified" className="flex items-center">
+                                                <ShieldCheck className="w-3 h-3 text-green-500"/>
+                                            </span>
+                                        )}
+                                    </div>
                                     <p className="text-xs text-slate-500">{patient.gender}, {new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()} Yrs</p>
                                 </div>
                             </div>
                             
                             <div className="space-y-2 text-sm text-slate-600 mb-4 pl-1">
                                 <div className="flex items-center text-xs"><Phone className="w-3 h-3 mr-2 text-slate-400"/> {patient.phone}</div>
-                                <div className="flex items-center truncate text-xs"><MapPin className="w-3 h-3 mr-2 text-slate-400 shrink-0"/> <span className="truncate">{patient.address || 'No address'}</span></div>
+                                {patient.abhaNumber && (
+                                    <div className="flex items-center text-xs text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded w-max border border-orange-100">
+                                        <ShieldCheck className="w-3 h-3 mr-1"/> {patient.abhaAddress || patient.abhaNumber}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Quick Tags */}
@@ -467,6 +712,7 @@ export const PatientManager: React.FC<PatientManagerProps> = ({ doctorId, patien
                                 {patient.allergies.length > 0 && <span className="text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded border border-red-100 font-bold">Allergies</span>}
                                 {patient.chronicConditions.length > 0 && <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100 font-bold">Chronic</span>}
                                 {getPatientPrescriptions(patient).length > 0 && <span className="text-[10px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded border border-green-100 font-bold">{getPatientPrescriptions(patient).length} Rx</span>}
+                                {getPatientLabs(patient).length > 0 && <span className="text-[10px] bg-teal-50 text-teal-600 px-1.5 py-0.5 rounded border border-teal-100 font-bold">{getPatientLabs(patient).length} Labs</span>}
                             </div>
                         </div>
                     ))

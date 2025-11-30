@@ -1,7 +1,7 @@
-
 import React, { useState, useMemo } from 'react';
-import { ShieldAlert, Plus, CheckCircle2, AlertTriangle, Trash2, FileText, Activity, RefreshCw, Ban, File, X, Stethoscope, Building2, Eye, Mail, Phone as PhoneIcon, MapPin, Calendar, Edit2, Save as SaveIcon, Lock, Search } from 'lucide-react';
+import { ShieldAlert, Plus, CheckCircle2, AlertTriangle, Trash2, FileText, Activity, RefreshCw, Ban, File, X, Stethoscope, Building2, Eye, Mail, Phone as PhoneIcon, MapPin, Calendar, Edit2, Save as SaveIcon, Lock, Search, Database } from 'lucide-react';
 import { AdminRole, AdminPermission, AdminUser, User, UserRole, VerificationStatus, Prescription, UserDocument, AuditLog } from '../../types';
+import { dbService } from '../../services/db';
 
 interface AdminDashboardProps {
     users: User[];
@@ -1068,7 +1068,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="lg:col-span-10 min-h-[600px]">
                 {activeView === 'OVERVIEW' && (
                     <div className="animate-in fade-in duration-300">
-                        <h2 className="text-2xl font-bold text-slate-900 mb-6">System Overview</h2>
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-2xl font-bold text-slate-900">System Overview</h2>
+                            <button 
+                                onClick={() => dbService.seedDatabase()}
+                                className="flex items-center gap-2 bg-slate-800 text-white px-4 py-2 rounded shadow hover:bg-slate-700 text-xs font-bold uppercase tracking-wider"
+                            >
+                                <Database className="w-4 h-4" /> Sync Seed Data
+                            </button>
+                        </div>
                         <AdminStats users={users} onFilter={(s) => { setFilterStatus(s); setActiveView('REGISTRY'); }} />
                         <ApprovalQueue users={users} onAction={onUpdateStatus} onViewDocs={setViewDocs} />
                     </div>

@@ -1,5 +1,5 @@
 {
-  "name": "e-rx-hub-current",
+  "name": "copy-of-1.5-copy-changing-e-rx-hub-current",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -15,7 +15,8 @@
     "lucide-react": "^0.554.0",
     "react": "^19.2.0",
     "react-hook-form": "^7.66.1",
-    "@supabase/supabase-js": "2.48.1"
+    "@supabase/supabase-js": "2.48.1",
+    "qrcode.react": "latest"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

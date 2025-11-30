@@ -14,9 +14,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, onOpen
   const isCloud = dbService.isCloudEnabled();
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 overflow-x-hidden">
+    <div className="min-h-screen flex flex-col bg-slate-50 overflow-x-hidden w-full">
       {/* Header */}
-      <header className="bg-indigo-700 text-white shadow-md sticky top-0 z-50">
+      <header className="bg-indigo-700 text-white shadow-md sticky top-0 z-50 w-full">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-8 w-8 text-teal-300 flex-shrink-0" />
@@ -46,12 +46,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogout, onOpen
       </header>
 
       {/* Main Content */}
-      <main className="flex-grow container mx-auto px-4 py-8 sm:px-6 lg:px-8 w-full max-w-full sm:max-w-7xl">
+      <main className="flex-grow container mx-auto px-3 py-6 sm:px-6 lg:px-8 w-full max-w-full sm:max-w-7xl">
         {children}
       </main>
 
       {/* Footer */}
-      <footer className="bg-slate-900 text-slate-400 py-6 mt-auto">
+      <footer className="bg-slate-900 text-slate-400 py-6 mt-auto w-full">
         <div className="max-w-7xl mx-auto px-4 text-center text-sm space-y-3">
           <p>&copy; {new Date().getFullYear()} E-rx by DevXWorld. Compliant with India Telemedicine Practice Guidelines 2020 & DPDP Act 2023.</p>
           

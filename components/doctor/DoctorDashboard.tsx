@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo } from 'react';
 import { DoctorProfile, VerificationStatus, Prescription, User, Patient, LabReferral, Appointment, MedicalCertificate } from '../../types';
 import { DoctorVerification } from './DoctorVerification';
@@ -653,6 +652,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                     onAddPatient={onAddPatient}
                     onUpdatePatient={onUpdatePatient}
                     prescriptions={myPrescriptions}
+                    labReferrals={myReferrals}
                 />
             </div>
         )}

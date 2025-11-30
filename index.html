@@ -15,7 +15,7 @@
       body { 
         font-family: 'Inter', sans-serif; 
         background-color: #f8fafc; 
-        overflow-x: hidden; /* Prevent page-wide horizontal scroll */
+        /* Removed overflow-x: hidden from body to allow better mobile scrolling control in React root */
       }
       /* Touch-friendly scrollbars */
       ::-webkit-scrollbar {
@@ -46,7 +46,8 @@
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "react": "https://aistudiocdn.com/react@^19.2.0",
     "react-hook-form": "https://aistudiocdn.com/react-hook-form@^7.66.1",
-    "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.48.1/+esm"
+    "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.48.1/+esm",
+    "qrcode.react": "https://esm.sh/qrcode.react?external=react,react-dom"
   }
 }
 </script>
