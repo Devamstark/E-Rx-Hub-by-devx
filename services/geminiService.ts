@@ -20,6 +20,49 @@ const getClient = () => {
     return new GoogleGenAI({ apiKey });
 };
 
+export const suggestDiagnosisFromSymptoms = async (
+    symptoms: string[]
+): Promise<string[]> => {
+    const ai = getClient();
+    if (!ai || symptoms.length === 0) return [];
+
+    const prompt = `
+        Patient presents with the following symptoms: ${symptoms.join(', ')}.
+        Based on Indian clinical context, suggest 3 most likely medical diagnoses.
+        Return ONLY a JSON array of strings. Example: ["Viral Fever", "Acute Bronchitis"].
+        Do not add explanations.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        diagnoses: {
+                            type: Type.ARRAY,
+                            items: { type: Type.STRING }
+                        }
+                    }
+                }
+            }
+        });
+
+        const text = response.text;
+        if (text) {
+            const data = JSON.parse(text);
+            return data.diagnoses || [];
+        }
+        return [];
+    } catch (e) {
+        console.error("Diagnosis Suggestion Error", e);
+        return [];
+    }
+};
+
 export const analyzePrescriptionSafety = async (
     diagnosis: string,
     medicines: Medicine[]

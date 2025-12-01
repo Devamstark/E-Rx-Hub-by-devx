@@ -258,6 +258,7 @@ export interface LabReferral {
   status: 'PENDING' | 'COMPLETED';
   reportUrl?: string; 
   notes?: string;
+  accessCode?: string; // 4-digit code for public upload access
 }
 
 // --- NEW: Appointments & Certificates ---

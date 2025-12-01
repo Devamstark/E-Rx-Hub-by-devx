@@ -26,7 +26,6 @@ export const InsuranceReadyRxPrintLayout: React.FC<Props> = ({
   const [dispenseAsWritten, setDispenseAsWritten] = useState(false);
 
   // Generate verification URL dynamically based on current origin
-  // Use query param 'mode=verify' to avoid 404s on static hosts without SPA routing config
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://erxdevx.vercel.app';
   const verificationUrl = `${origin}/?mode=verify&rx_id=${prescription.id}`;
 
@@ -36,14 +35,12 @@ export const InsuranceReadyRxPrintLayout: React.FC<Props> = ({
   };
 
   const handleDownload = () => {
-      // Temporarily change title to ensure "Save as PDF" uses a good filename
       const originalTitle = document.title;
       const safeName = patient.fullName.replace(/[^a-z0-9]/gi, '_');
       document.title = `Rx_${safeName}_${prescription.id}`;
       
       window.print();
       
-      // Revert title after print dialog closes (approximate timing)
       setTimeout(() => {
           document.title = originalTitle;
       }, 500);
@@ -54,18 +51,44 @@ export const InsuranceReadyRxPrintLayout: React.FC<Props> = ({
       if (onGenerateQR) onGenerateQR();
   };
 
-  // Determine patient age string safely
   const patientAgeStr = patient.dateOfBirth 
     ? `${new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()} Yrs`
     : (prescription.patientAge ? `${prescription.patientAge} Yrs` : 'N/A');
 
-  // Safely handle doctor object structure which might vary between User and Snapshot
+  const dobStr = patient.dateOfBirth 
+    ? new Date(patient.dateOfBirth).toLocaleDateString('en-IN') 
+    : 'N/A';
+
+  // Safely handle doctor object structure
   const docName = doctor.name || doctor.doctorName;
   const docQual = doctor.qualifications || 'MBBS';
   const docReg = doctor.licenseNumber || doctor.registrationNumber || doctor.reg_no || 'Pending';
   const docAddress = doctor.clinicAddress || doctor.address || '';
   const docCity = doctor.city || '';
   const docPhone = doctor.phone || '';
+
+  // Helper to expand frequency codes
+  const expandFrequency = (freq: string = '') => {
+      const f = freq.trim().toUpperCase();
+      const map: Record<string, string> = {
+        '1-0-0': 'Morning (OD)',
+        '0-1-0': 'Afternoon (OD)',
+        '0-0-1': 'Night (Before Sleep)',
+        '1-0-1': 'Morning & Night (BD)',
+        '1-1-1': 'Morning, Noon, Night (TDS)',
+        '1-1-1-1': '4 Times a Day (QID)',
+        'OD': 'Once Daily',
+        'BD': 'Twice Daily',
+        'BID': 'Twice Daily',
+        'TDS': 'Thrice Daily',
+        'TID': 'Thrice Daily',
+        'QID': '4 Times Daily',
+        'SOS': 'As Needed',
+        'STAT': 'Immediately',
+        'HS': 'At Bedtime'
+      };
+      return map[f] || f;
+  };
 
   return (
     <div className="bg-gray-100 p-4 sm:p-8 min-h-screen flex flex-col items-center">
@@ -153,32 +176,55 @@ export const InsuranceReadyRxPrintLayout: React.FC<Props> = ({
                 </div>
             </header>
 
-            {/* Insurance & Patient Grid */}
+            {/* Insurance & Patient Grid - EXPANDED */}
             <section className="mb-6 rounded border border-slate-300 overflow-hidden font-sans">
                 <div className="bg-slate-100 px-4 py-2 border-b border-slate-300 flex justify-between items-center">
-                    <span className="text-[10px] font-bold uppercase text-slate-500">Patient Demographics & Insurance</span>
+                    <span className="text-[10px] font-bold uppercase text-slate-500">Patient Details & Demographics</span>
                     <span className="text-[10px] font-bold uppercase text-slate-500">Rx ID: <span className="text-slate-900 font-mono text-sm">{prescription.id}</span></span>
                 </div>
-                <div className="p-4 grid grid-cols-2 gap-x-8 gap-y-4 text-xs">
-                    <div>
-                        <span className="block text-[9px] uppercase font-bold text-slate-400">Patient Name</span>
-                        <span className="font-bold text-base text-slate-900">{patient.fullName}</span>
+                <div className="p-4 text-xs">
+                    {/* Primary Details Row */}
+                    <div className="grid grid-cols-3 gap-4 mb-4">
+                        <div>
+                            <span className="block text-[9px] uppercase font-bold text-slate-400">Patient Name</span>
+                            <span className="font-bold text-base text-slate-900">{patient.fullName}</span>
+                        </div>
+                        <div>
+                            <span className="block text-[9px] uppercase font-bold text-slate-400">Age / Gender</span>
+                            <span className="font-medium text-slate-900">{patientAgeStr} / {patient.gender}</span>
+                        </div>
+                        <div>
+                            <span className="block text-[9px] uppercase font-bold text-slate-400">Date of Birth</span>
+                            <span className="font-medium text-slate-900">{dobStr}</span>
+                        </div>
                     </div>
-                    <div>
-                        <span className="block text-[9px] uppercase font-bold text-slate-400">Age / Gender</span>
-                        <span className="font-medium text-slate-900">{patientAgeStr} / {patient.gender}</span>
+
+                    {/* Secondary Details Row */}
+                    <div className="grid grid-cols-3 gap-4 mb-4">
+                        <div>
+                            <span className="block text-[9px] uppercase font-bold text-slate-400">Contact Number</span>
+                            <span className="font-medium text-slate-900">{patient.phone || 'N/A'}</span>
+                        </div>
+                        <div>
+                            <span className="block text-[9px] uppercase font-bold text-slate-400">Weight</span>
+                            <span className="font-medium text-slate-900">
+                                {patient.weight || prescription.vitals?.weight ? `${patient.weight || prescription.vitals?.weight} kg` : 'N/A'}
+                            </span>
+                        </div>
+                        <div>
+                            <span className="block text-[9px] uppercase font-bold text-slate-400">ABHA ID (Health ID)</span>
+                            <span className="font-mono font-bold text-indigo-700">{patient.abhaNumber || 'N/A'}</span>
+                        </div>
                     </div>
-                    <div>
-                        <span className="block text-[9px] uppercase font-bold text-slate-400">Address</span>
-                        <span className="block truncate text-slate-700">{patient.address || 'N/A'}</span>
-                    </div>
-                    <div>
-                        <span className="block text-[9px] uppercase font-bold text-slate-400">ABHA ID (Health ID)</span>
-                        <span className="font-mono font-bold text-indigo-700">{patient.abhaNumber || 'N/A'}</span>
+
+                    {/* Address Row */}
+                    <div className="mb-2">
+                        <span className="block text-[9px] uppercase font-bold text-slate-400">Full Address</span>
+                        <span className="block text-slate-700">{patient.address || 'Address not provided'}</span>
                     </div>
                     
                     {/* Editable Insurance Fields */}
-                    <div className="col-span-2 grid grid-cols-2 gap-8 border-t border-dashed border-slate-200 pt-3 mt-1">
+                    <div className="grid grid-cols-2 gap-8 border-t border-dashed border-slate-200 pt-3 mt-3">
                         <div>
                             <label className="block text-[9px] uppercase font-bold text-slate-400 mb-1">Insurance Policy No.</label>
                             <input 
@@ -213,10 +259,10 @@ export const InsuranceReadyRxPrintLayout: React.FC<Props> = ({
                 {prescription.vitals && Object.values(prescription.vitals).some(Boolean) && (
                     <div className="flex flex-wrap gap-4 text-xs font-mono text-slate-600 border-t border-b border-slate-100 py-2">
                         {prescription.vitals.bp && <span><b className="text-slate-400">BP:</b> {prescription.vitals.bp}</span>}
-                        {prescription.vitals.weight && <span><b className="text-slate-400">Wt:</b> {prescription.vitals.weight}kg</span>}
                         {prescription.vitals.temp && <span><b className="text-slate-400">Temp:</b> {prescription.vitals.temp}</span>}
                         {prescription.vitals.spo2 && <span><b className="text-slate-400">SpO2:</b> {prescription.vitals.spo2}%</span>}
                         {prescription.vitals.pulse && <span><b className="text-slate-400">HR:</b> {prescription.vitals.pulse}</span>}
+                        {prescription.vitals.weight && <span><b className="text-slate-400">Wt:</b> {prescription.vitals.weight}kg</span>}
                     </div>
                 )}
             </div>
@@ -229,9 +275,9 @@ export const InsuranceReadyRxPrintLayout: React.FC<Props> = ({
                 <table className="w-full text-sm border-collapse font-sans">
                     <thead>
                         <tr className="border-b-2 border-slate-800 text-[10px] uppercase text-left tracking-wider text-slate-500">
-                            <th className="py-2 w-5/12">Medicine Name & Strength</th>
+                            <th className="py-2 w-4/12">Medicine Name & Strength</th>
                             <th className="py-2 w-2/12">Dosage</th>
-                            <th className="py-2 w-2/12">Frequency</th>
+                            <th className="py-2 w-3/12">Frequency / Direction</th>
                             <th className="py-2 w-1/12">Duration</th>
                             <th className="py-2 w-2/12">Instruction</th>
                         </tr>
@@ -243,7 +289,10 @@ export const InsuranceReadyRxPrintLayout: React.FC<Props> = ({
                                     <span className="font-bold block">{med.name}</span>
                                 </td>
                                 <td className="py-3 font-medium">{med.dosage}</td>
-                                <td className="py-3 font-medium">{med.frequency}</td>
+                                <td className="py-3 font-medium">
+                                    <span className="block">{med.frequency}</span>
+                                    <span className="text-[10px] text-slate-500 uppercase font-bold">{expandFrequency(med.frequency)}</span>
+                                </td>
                                 <td className="py-3 font-medium">{med.duration}</td>
                                 <td className="py-3 italic text-slate-600 text-xs leading-tight">{med.instructions}</td>
                             </tr>
