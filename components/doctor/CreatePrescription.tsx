@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { Medicine, Prescription, User, Patient, PrescriptionTemplate, VerificationStatus } from '../../types';
-import { Plus, Trash2, Send, BrainCircuit, FileText, AlertTriangle, Info, Video, User as UserIcon, Search, Link2, UserPlus, RotateCcw, Save, Download, KeyRound, Calendar, Repeat, X, CheckCircle, MapPin, Phone, Building2, Mic, Activity, Thermometer, Gauge, ShieldCheck, CheckCircle2, Filter, ShieldAlert, Sparkles, Stethoscope } from 'lucide-react';
-import { analyzePrescriptionSafety, suggestDiagnosisFromSymptoms } from '../../services/geminiService';
-import { LOW_RISK_GENERIC_LIST, RESTRICTED_DRUGS, COMMON_SYMPTOMS, COMMON_DIAGNOSES } from '../../constants';
+import { Plus, Trash2, Send, BrainCircuit, FileText, AlertTriangle, Info, Video, User as UserIcon, Search, Link2, UserPlus, RotateCcw, Save, Download, KeyRound, Calendar, Repeat, X, CheckCircle, MapPin, Phone, Building2, Mic, Activity, Thermometer, Gauge, ShieldCheck, CheckCircle2, Filter, ShieldAlert } from 'lucide-react';
+import { analyzePrescriptionSafety } from '../../services/geminiService';
+import { LOW_RISK_GENERIC_LIST, RESTRICTED_DRUGS } from '../../constants';
 import { dbService } from '../../services/db';
 
 interface CreatePrescriptionProps {
@@ -92,10 +91,6 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
 
   // Medicine Filtering State
   const [medicineFilter, setMedicineFilter] = useState<'SAFE' | 'RESTRICTED' | 'ALL'>('SAFE');
-
-  // Diagnosis Helpers State
-  const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
-  const [suggestingDiagnosis, setSuggestingDiagnosis] = useState(false);
 
   // Filtered Autocomplete List - Filter out restricted drugs for safety by default
   const medicineOptions = useMemo(() => {
@@ -253,42 +248,6 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
     const result = await analyzePrescriptionSafety(diagnosis, medicines);
     setAiAnalysis(result);
     setAnalyzing(false);
-  };
-
-  // --- Diagnosis Helper Functions ---
-  const handleToggleSymptom = (sym: string) => {
-      if (selectedSymptoms.includes(sym)) {
-          setSelectedSymptoms(prev => prev.filter(s => s !== sym));
-      } else {
-          setSelectedSymptoms(prev => [...prev, sym]);
-      }
-  };
-
-  const handleSuggestDiagnosis = async () => {
-      if (selectedSymptoms.length === 0) {
-          alert("Select at least one symptom for AI suggestion.");
-          return;
-      }
-      setSuggestingDiagnosis(true);
-      const suggestions = await suggestDiagnosisFromSymptoms(selectedSymptoms);
-      setSuggestingDiagnosis(false);
-      
-      if (suggestions.length > 0) {
-          // Append suggestion to diagnosis field
-          const current = getValues('diagnosis') || '';
-          const suggestionText = suggestions.join(', ');
-          setValue('diagnosis', current ? current + '; Possible: ' + suggestionText : suggestionText);
-      } else {
-          alert("Could not generate diagnosis. Please try again.");
-      }
-  };
-
-  const handleQuickDiagnose = (diag: string) => {
-      const current = getValues('diagnosis') || '';
-      // Avoid duplicate
-      if (!current.includes(diag)) {
-          setValue('diagnosis', current ? `${current}, ${diag}` : diag);
-      }
   };
 
   // Voice Dictation Logic
@@ -488,8 +447,6 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
     // Reset basic form state but keep doctor context
     setESignStep('IDLE');
     setESignToken('');
-    setESignInput('');
-    setSelectedSymptoms([]);
     // Optionally clear form here or navigate away (DoctorDashboard usually handles navigation)
   };
 
@@ -711,10 +668,10 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
              )}
         </div>
 
-        {/* VITALS & DIAGNOSIS - ENHANCED */}
+        {/* VITALS & DIAGNOSIS */}
         <div>
           <label className="block text-sm font-bold text-slate-700 uppercase tracking-wide mb-2 flex items-center">
-              <Activity className="w-4 h-4 mr-2 text-teal-600"/> 2. Clinical Evaluation
+              <Activity className="w-4 h-4 mr-2 text-teal-600"/> 2. Vitals & Diagnosis
           </label>
           
           {/* Vitals Row */}
@@ -743,45 +700,7 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
               </div>
           </div>
 
-          {/* New Section: Chief Complaints & Symptoms */}
-          <div className="mb-4">
-              <label className="text-xs font-bold text-slate-500 mb-1 block">Chief Complaints / Symptoms</label>
-              <div className="flex flex-wrap gap-2 mb-2">
-                  {COMMON_SYMPTOMS.map(sym => (
-                      <button
-                          type="button"
-                          key={sym}
-                          onClick={() => handleToggleSymptom(sym)}
-                          className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                              selectedSymptoms.includes(sym) 
-                              ? 'bg-indigo-600 text-white border-indigo-600' 
-                              : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
-                          }`}
-                      >
-                          {sym}
-                      </button>
-                  ))}
-              </div>
-              
-              {/* AI Helper for Diagnosis */}
-              {selectedSymptoms.length > 0 && (
-                  <button 
-                      type="button" 
-                      onClick={handleSuggestDiagnosis}
-                      disabled={suggestingDiagnosis}
-                      className="text-xs flex items-center gap-1 text-purple-600 font-bold bg-purple-50 px-3 py-1.5 rounded border border-purple-200 hover:bg-purple-100 transition-colors mb-2 w-max"
-                  >
-                      {suggestingDiagnosis ? (
-                          <><div className="animate-spin h-3 w-3 border-2 border-purple-600 rounded-full border-t-transparent mr-1"></div> Thinking...</>
-                      ) : (
-                          <><Sparkles className="w-3 h-3"/> AI Suggest Diagnosis</>
-                      )}
-                  </button>
-              )}
-          </div>
-
           <div className="relative">
-              <label className="text-xs font-bold text-slate-500 mb-1 block">Diagnosis</label>
               <textarea 
                 {...register('diagnosis', { required: true })} 
                 className="mt-1 block w-full border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border p-3 text-sm pr-10" 
@@ -791,30 +710,13 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
               <button
                 type="button"
                 onClick={() => toggleVoiceInput('DIAGNOSIS')}
-                className={`absolute top-8 right-2 p-1.5 rounded-full transition-all ${isListening === 'DIAGNOSIS' ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                className={`absolute top-2 right-2 p-1.5 rounded-full transition-all ${isListening === 'DIAGNOSIS' ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
                 title="Voice Dictation"
               >
                   <Mic className="w-4 h-4" />
               </button>
           </div>
           {errors.diagnosis && <p className="text-xs text-red-500 mt-1">Diagnosis is required.</p>}
-
-          {/* Diagnosis Quick Chips */}
-          <div className="mt-2">
-              <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Quick Select Diagnosis</p>
-              <div className="flex flex-wrap gap-1.5">
-                  {COMMON_DIAGNOSES.map(d => (
-                      <button
-                          type="button"
-                          key={d}
-                          onClick={() => handleQuickDiagnose(d)}
-                          className="px-2 py-1 bg-slate-50 text-slate-600 text-[10px] font-medium rounded border border-slate-200 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
-                      >
-                          {d}
-                      </button>
-                  ))}
-              </div>
-          </div>
         </div>
 
         {/* Medicines */}

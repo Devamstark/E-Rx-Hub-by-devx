@@ -1,4 +1,3 @@
-
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { User, Prescription, UserRole, VerificationStatus, Patient, AuditLog, PrescriptionTemplate, Supplier, Customer, Sale, Expense, SalesReturn, LabReferral, Appointment, MedicalCertificate } from '../types';
 
@@ -305,8 +304,7 @@ const INITIAL_LAB_REFERRALS: LabReferral[] = [
         date: new Date(Date.now() - 86400000 * 5).toISOString(),
         status: 'COMPLETED',
         reportUrl: 'mock_report.pdf',
-        notes: 'Check Cholesterol levels',
-        accessCode: '1234'
+        notes: 'Check Cholesterol levels'
     }
 ];
 
@@ -501,47 +499,6 @@ export const dbService = {
         // Fallback to local
         const localRx = local.getRx();
         return localRx.find(p => p.id === id) || null;
-    },
-
-    // --- NEW: Public Lab Access ---
-    async getPublicLabReferral(id: string): Promise<LabReferral | null> {
-        if (supabase) {
-            const { data } = await supabase.from('lab_referrals').select('data').eq('id', 'global_lab_referrals').single();
-            if (data && data.data) {
-                return (data.data as LabReferral[]).find(r => r.id === id) || null;
-            }
-        }
-        const localLabs = local.getLabReferrals();
-        return localLabs.find(r => r.id === id) || null;
-    },
-
-    async submitLabReport(id: string, fileUrl: string): Promise<boolean> {
-        try {
-            // Fetch All
-            let allLabs: LabReferral[] = [];
-            if (supabase) {
-                const { data } = await supabase.from('lab_referrals').select('data').eq('id', 'global_lab_referrals').single();
-                allLabs = (data?.data as LabReferral[]) || [];
-            } else {
-                allLabs = local.getLabReferrals();
-            }
-
-            // Update Specific
-            const updatedLabs = allLabs.map(lab => 
-                lab.id === id ? { ...lab, reportUrl: fileUrl, status: 'COMPLETED' as const } : lab
-            );
-
-            // Save Back
-            if (supabase) {
-                await supabase.from('lab_referrals').upsert({ id: 'global_lab_referrals', data: updatedLabs });
-            } else {
-                local.setLabReferrals(updatedLabs);
-            }
-            return true;
-        } catch (e) {
-            console.error("Report Upload Sync Failed", e);
-            return false;
-        }
     },
 
     async loadData(): Promise<{ 

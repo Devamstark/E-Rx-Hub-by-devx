@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Layout } from './components/ui/Layout';
 import { Login } from './components/auth/Login';
@@ -6,7 +5,6 @@ import { DoctorDashboard } from './components/doctor/DoctorDashboard';
 import { PharmacyDashboard } from './components/pharmacy/PharmacyDashboard';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { RxVerification } from './components/public/RxVerification';
-import { LabUpload } from './components/public/LabUpload';
 import { User, UserRole, VerificationStatus, DoctorProfile, Prescription, Patient, AuditLog, SalesReturn, LabReferral, Appointment, MedicalCertificate } from './types';
 import { dbService } from './services/db';
 import { Loader2, Clock, LogOut } from 'lucide-react';
@@ -21,19 +19,11 @@ function App() {
   // Checks for both /verify path AND mode=verify query param to support static host fallback
   const urlParams = new URLSearchParams(window.location.search);
   const verifyId = urlParams.get('rx_id');
-  const refId = urlParams.get('ref_id');
-  const prefillCode = urlParams.get('code');
   const mode = urlParams.get('mode');
-  
   const isVerifyRoute = window.location.pathname === '/verify' || mode === 'verify';
-  const isLabUploadRoute = mode === 'lab_upload';
 
   if (isVerifyRoute && verifyId) {
       return <RxVerification rxId={verifyId} />;
-  }
-
-  if (isLabUploadRoute && refId) {
-      return <LabUpload referralId={refId} prefillCode={prefillCode || undefined} />;
   }
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);

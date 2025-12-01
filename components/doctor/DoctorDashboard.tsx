@@ -3,12 +3,10 @@ import React, { useState, useMemo } from 'react';
 import { DoctorProfile, VerificationStatus, Prescription, User, Patient, LabReferral, Appointment, MedicalCertificate } from '../../types';
 import { DoctorVerification } from './DoctorVerification';
 import { CreatePrescription } from './CreatePrescription';
-import { ClipboardList, User as UserIcon, History, Bell, Eye, Users, BarChart3, Calculator, Activity, TrendingUp, Scale, Baby, TestTube, FileBarChart, CheckCircle2, Clock, Send, Microscope, FileText, X, Calendar, Video, FileBadge, CheckSquare, BadgeCheck, Plus, Trash2, Share2, Copy, Printer } from 'lucide-react';
+import { ClipboardList, User as UserIcon, History, Bell, Eye, Users, BarChart3, Calculator, Activity, TrendingUp, Scale, Baby, TestTube, FileBarChart, CheckCircle2, Clock, Send, Microscope, FileText, X, Calendar, Video, FileBadge, CheckSquare, BadgeCheck, Plus, Trash2 } from 'lucide-react';
 import { PrescriptionModal } from './PrescriptionModal';
 import { PatientManager } from './PatientManager';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { QRCodeCanvas } from 'qrcode.react';
-import { LabRequisitionPrintLayout } from '../ui/LabRequisitionPrintLayout';
 
 interface DoctorDashboardProps {
   status: VerificationStatus;
@@ -160,8 +158,6 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
   const [preferredLab, setPreferredLab] = useState('');
   const [labNotes, setLabNotes] = useState('');
   const [viewingReport, setViewingReport] = useState<LabReferral | null>(null);
-  const [shareLab, setShareLab] = useState<LabReferral | null>(null);
-  const [printLabRequisition, setPrintLabRequisition] = useState<LabReferral | null>(null);
 
   // --- ANALYTICS DATA PREP ---
   const analyticsData = useMemo(() => {
@@ -227,9 +223,6 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
       const p = myPatients.find(pat => pat.id === selectedLabPatient);
       if (!p) return;
 
-      // Generate random 4 digit code
-      const code = Math.floor(1000 + Math.random() * 9000).toString();
-
       const newRef: LabReferral = {
           id: `REF-${Date.now()}`,
           patientId: p.id,
@@ -240,8 +233,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
           labName: preferredLab,
           date: new Date().toISOString(),
           status: 'PENDING',
-          notes: labNotes,
-          accessCode: code
+          notes: labNotes
       };
       
       onAddLabReferral(newRef);
@@ -249,7 +241,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
       setLabTestName('');
       setPreferredLab('');
       setLabNotes('');
-      alert(`Lab Requisition Created. Access Code: ${code}`);
+      alert("Lab Requisition Created Successfully");
   };
 
   if (status !== VerificationStatus.VERIFIED) {
@@ -264,16 +256,10 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
     );
   }
 
-  // Find patient for the selected Rx to pass detailed info to modal
-  const selectedRxPatient = selectedRx 
-    ? myPatients.find(p => p.id === selectedRx.patientId || p.fullName === selectedRx.patientName)
-    : null;
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in duration-500">
       {/* Sidebar / Menu */}
       <div className="lg:col-span-3 space-y-4">
-        {/* ... existing sidebar ... */}
         <div className="bg-white p-4 rounded-lg shadow border border-slate-200">
             <div className="flex items-center space-x-3 mb-6">
                 <div className="h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center">
@@ -352,10 +338,8 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
 
       {/* Main Workspace */}
       <div className="lg:col-span-9">
-        {/* ... view rendering ... */}
         {view === 'APPOINTMENTS' && (
             <div className="bg-white rounded-lg shadow border border-slate-200 p-6 animate-in fade-in slide-in-from-bottom-2 relative">
-                {/* ... appointments content ... */}
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-bold text-slate-800 flex items-center">
                         <Calendar className="w-6 h-6 mr-2 text-indigo-600"/> Appointment Queue
@@ -486,7 +470,6 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
         )}
 
         {view === 'CERTIFICATES' && (
-            // ... certificates component ...
             <div className="animate-in fade-in slide-in-from-bottom-2">
                 <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-lg shadow-sm border border-slate-200">
                     <h2 className="text-xl font-bold text-slate-800 flex items-center">
@@ -729,16 +712,15 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
         )}
 
         {view === 'LABS' && (
-             // ... existing Labs content ...
              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-                 {/* ... content omitted for brevity, logic remains ... */}
                  <div className="flex items-center justify-between">
                      <h2 className="text-xl font-bold text-slate-800 flex items-center">
                         <Microscope className="w-6 h-6 mr-2 text-indigo-600"/> Lab & Diagnostics
                      </h2>
                  </div>
-                 {/* ... Lab JSX structure ... */}
+
                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                     {/* Referral Form */}
                      <div className="md:col-span-5">
                          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
                              <h3 className="font-bold text-slate-700 mb-4 flex items-center border-b border-slate-100 pb-2">
@@ -759,21 +741,22 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                                          ))}
                                      </select>
                                  </div>
-                                 {/* ... other lab fields ... */}
                                  <div>
                                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Test Name(s)</label>
                                      <input 
                                         className="w-full border p-2 rounded text-sm" 
-                                        placeholder="e.g. CBC, Lipid Profile"
+                                        placeholder="e.g. CBC, Lipid Profile, X-Ray Chest PA"
                                         required
                                         value={labTestName}
                                         onChange={e => setLabTestName(e.target.value)}
                                      />
+                                     <p className="text-[10px] text-slate-400 mt-1">Separate multiple tests with commas.</p>
                                  </div>
                                  <div>
-                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Preferred Lab</label>
+                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Preferred Lab (Optional)</label>
                                      <input 
                                         className="w-full border p-2 rounded text-sm" 
+                                        placeholder="e.g. Metropolis, Dr. Lal PathLabs"
                                         value={preferredLab}
                                         onChange={e => setPreferredLab(e.target.value)}
                                      />
@@ -783,18 +766,20 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                                      <textarea 
                                         className="w-full border p-2 rounded text-sm" 
                                         rows={2}
+                                        placeholder="Specific instructions..."
                                         value={labNotes}
                                         onChange={e => setLabNotes(e.target.value)}
                                      />
                                  </div>
                                  <button type="submit" className="w-full bg-teal-600 text-white py-2 rounded font-bold hover:bg-teal-700 transition-colors">
-                                     Generate Referral
+                                     Send Referral
                                  </button>
                              </form>
                          </div>
                      </div>
+
+                     {/* Referral History / Reports */}
                      <div className="md:col-span-7">
-                         {/* ... referrals list ... */}
                          <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden h-full flex flex-col">
                              <div className="p-4 bg-slate-50 border-b border-slate-200">
                                  <h3 className="font-bold text-slate-700 flex items-center">
@@ -808,7 +793,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                                              <th className="p-3">Date</th>
                                              <th className="p-3">Patient</th>
                                              <th className="p-3">Test</th>
-                                             <th className="p-3 text-right">Status / Actions</th>
+                                             <th className="p-3 text-right">Status</th>
                                          </tr>
                                      </thead>
                                      <tbody className="divide-y divide-slate-50">
@@ -819,24 +804,19 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                                                  <tr key={ref.id} className="hover:bg-indigo-50/50">
                                                      <td className="p-3 text-slate-500">{new Date(ref.date).toLocaleDateString()}</td>
                                                      <td className="p-3 font-medium text-slate-800">{ref.patientName}</td>
-                                                     <td className="p-3 text-slate-600 truncate max-w-[120px]">{ref.testName}</td>
+                                                     <td className="p-3 text-slate-600 truncate max-w-[120px]" title={ref.testName}>{ref.testName}</td>
                                                      <td className="p-3 text-right">
                                                          {ref.status === 'COMPLETED' ? (
-                                                             <button onClick={() => setViewingReport(ref)} className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded border border-green-200 font-bold hover:bg-green-200 inline-flex items-center">
-                                                                 <CheckCircle2 className="w-3 h-3 mr-1"/> View
+                                                             <button 
+                                                                onClick={() => setViewingReport(ref)}
+                                                                className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded border border-green-200 font-bold hover:bg-green-200 inline-flex items-center"
+                                                             >
+                                                                 <CheckCircle2 className="w-3 h-3 mr-1"/> View Report
                                                              </button>
                                                          ) : (
-                                                             <div className="flex items-center justify-end gap-2">
-                                                                 <button onClick={() => setPrintLabRequisition(ref)} className="text-xs bg-white text-slate-600 px-2 py-1 rounded border border-slate-200 font-bold hover:bg-slate-50 inline-flex items-center" title="Print Requisition Form">
-                                                                     <Printer className="w-3 h-3 mr-1"/> Print
-                                                                 </button>
-                                                                 <button onClick={() => setShareLab(ref)} className="text-xs bg-indigo-50 text-indigo-700 px-2 py-1 rounded border border-indigo-200 font-bold hover:bg-indigo-100 inline-flex items-center">
-                                                                     <Share2 className="w-3 h-3 mr-1"/> Share
-                                                                 </button>
-                                                                 <span className="text-xs text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100">
-                                                                     Pending
-                                                                 </span>
-                                                             </div>
+                                                             <span className="text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded border border-amber-200 font-medium inline-flex items-center">
+                                                                 <Clock className="w-3 h-3 mr-1"/> Pending
+                                                             </span>
                                                          )}
                                                      </td>
                                                  </tr>
@@ -851,7 +831,69 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
              </div>
         )}
 
-        {/* ... other views (Analytics, Tools) remain similar ... */}
+        {/* Report Viewer Modal */}
+        {viewingReport && (
+            <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95">
+                    <div className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
+                        <div>
+                            <h3 className="font-bold flex items-center"><FileText className="w-5 h-5 mr-2"/> Diagnostic Report</h3>
+                            <p className="text-xs text-slate-400 font-mono mt-1">REF: {viewingReport.id}</p>
+                        </div>
+                        <button onClick={() => setViewingReport(null)} className="text-slate-400 hover:text-white"><X className="w-6 h-6"/></button>
+                    </div>
+                    <div className="p-8 bg-white">
+                        <div className="border-b-2 border-slate-800 pb-4 mb-6 flex justify-between items-end">
+                             <div>
+                                 <h2 className="text-2xl font-bold text-slate-900 uppercase">{viewingReport.labName || 'Diagnostic Center'}</h2>
+                                 <p className="text-sm text-slate-500">Pathology & Radiology Services</p>
+                             </div>
+                             <div className="text-right text-sm">
+                                 <p><span className="font-bold text-slate-600">Patient:</span> {viewingReport.patientName}</p>
+                                 <p><span className="font-bold text-slate-600">Date:</span> {new Date().toLocaleDateString()}</p>
+                             </div>
+                        </div>
+
+                        <div className="mb-6">
+                            <h4 className="font-bold text-slate-800 mb-2 uppercase text-sm border-b border-slate-200 pb-1">Test Results: {viewingReport.testName}</h4>
+                            <div className="bg-slate-50 p-4 rounded border border-slate-100 font-mono text-sm space-y-2">
+                                {/* Mock Data Simulation */}
+                                <div className="flex justify-between border-b border-slate-200 pb-1 mb-1 font-bold text-slate-500">
+                                    <span>PARAMETER</span>
+                                    <span>RESULT</span>
+                                    <span>REF RANGE</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span>Haemoglobin</span>
+                                    <span className="font-bold">13.5 g/dL</span>
+                                    <span className="text-slate-500">12.0 - 15.0</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span>Total WBC</span>
+                                    <span className="font-bold">6,500 /cumm</span>
+                                    <span className="text-slate-500">4000 - 10000</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span>Platelets</span>
+                                    <span className="font-bold">2.5 Lakhs</span>
+                                    <span className="text-slate-500">1.5 - 4.5</span>
+                                </div>
+                                <div className="mt-4 pt-2 border-t border-dashed border-slate-300 text-xs italic text-slate-500">
+                                    Electronically generated report. No signature required.
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="text-center">
+                            <button onClick={() => setViewingReport(null)} className="bg-slate-100 text-slate-700 px-6 py-2 rounded font-bold hover:bg-slate-200">
+                                Close Viewer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+
         {view === 'ANALYTICS' && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
                 <div className="bg-white p-6 rounded-lg shadow border border-slate-200">
@@ -860,6 +902,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                     </h2>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* CHART 1: Activity */}
                         <div>
                             <h3 className="text-sm font-bold text-slate-500 uppercase mb-4 text-center">Prescriptions (Last 7 Days)</h3>
                             <div className="h-64 w-full">
@@ -868,18 +911,28 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                         <XAxis dataKey="date" tick={{fontSize: 12}} />
                                         <YAxis allowDecimals={false} />
-                                        <Tooltip cursor={{fill: '#f1f5f9'}} />
+                                        <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
                                         <Bar dataKey="count" fill="#4f46e5" radius={[4, 4, 0, 0]} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             </div>
                         </div>
+
+                        {/* CHART 2: Diagnoses */}
                         <div>
                             <h3 className="text-sm font-bold text-slate-500 uppercase mb-4 text-center">Top Diagnoses</h3>
                             <div className="h-64 w-full">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
-                                        <Pie data={analyticsData.diagnosisData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                                        <Pie
+                                            data={analyticsData.diagnosisData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={60}
+                                            outerRadius={80}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                        >
                                             {analyticsData.diagnosisData.map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
@@ -892,34 +945,158 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                         </div>
                     </div>
                 </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+                         <div className="flex items-center gap-3">
+                             <div className="p-3 bg-blue-100 text-blue-600 rounded-full"><Users className="w-5 h-5"/></div>
+                             <div>
+                                 <p className="text-xs text-slate-500 font-bold uppercase">Avg Patients/Day</p>
+                                 <p className="text-xl font-bold text-slate-800">
+                                    {(myPatients.length / 30).toFixed(1)} <span className="text-xs font-normal text-slate-400">(Est.)</span>
+                                 </p>
+                             </div>
+                         </div>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+                         <div className="flex items-center gap-3">
+                             <div className="p-3 bg-green-100 text-green-600 rounded-full"><Activity className="w-5 h-5"/></div>
+                             <div>
+                                 <p className="text-xs text-slate-500 font-bold uppercase">Completion Rate</p>
+                                 <p className="text-xl font-bold text-slate-800">
+                                    {myPrescriptions.length > 0 ? ((myPrescriptions.filter(p => p.status === 'DISPENSED').length / myPrescriptions.length) * 100).toFixed(0) : 0}%
+                                 </p>
+                             </div>
+                         </div>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
+                         <div className="flex items-center gap-3">
+                             <div className="p-3 bg-purple-100 text-purple-600 rounded-full"><TrendingUp className="w-5 h-5"/></div>
+                             <div>
+                                 <p className="text-xs text-slate-500 font-bold uppercase">Growth (MoM)</p>
+                                 <p className="text-xl font-bold text-slate-800">+12%</p>
+                             </div>
+                         </div>
+                    </div>
+                </div>
             </div>
         )}
 
         {view === 'TOOLS' && (
              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
                  <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center">
-                    <Calculator className="w-6 h-6 mr-2 text-indigo-600"/> Clinical Tools
+                    <Calculator className="w-6 h-6 mr-2 text-indigo-600"/> Clinical Tools & Calculators
                 </h2>
-                {/* ... BMI and Dose Calculator ... */}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* BMI Calculator */}
                     <div className="bg-white rounded-lg shadow border border-slate-200 p-6">
-                        <h3 className="font-bold text-slate-700 mb-4 flex items-center"><Scale className="w-5 h-5 mr-2 text-teal-600"/> BMI Calculator</h3>
-                        <div className="grid grid-cols-2 gap-4 mb-4">
-                            <input type="number" placeholder="Weight (kg)" className="border p-2 rounded" value={bmiData.weight} onChange={e => setBmiData({...bmiData, weight: e.target.value})}/>
-                            <input type="number" placeholder="Height (cm)" className="border p-2 rounded" value={bmiData.height} onChange={e => setBmiData({...bmiData, height: e.target.value})}/>
+                        <div className="flex items-center mb-4 border-b border-slate-100 pb-2">
+                            <Scale className="w-5 h-5 mr-2 text-teal-600"/>
+                            <h3 className="font-bold text-slate-700">BMI Calculator</h3>
                         </div>
-                        <button onClick={calculateBMI} className="w-full bg-teal-600 text-white py-2 rounded font-bold text-sm">Calculate</button>
-                        {bmiData.result && <div className="mt-2 p-2 bg-teal-50 text-center font-bold text-teal-800 rounded">{bmiData.result}</div>}
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">Weight (kg)</label>
+                                    <input 
+                                        type="number" 
+                                        className="w-full border p-2 rounded text-sm" 
+                                        placeholder="e.g. 70"
+                                        value={bmiData.weight}
+                                        onChange={e => setBmiData({...bmiData, weight: e.target.value})}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">Height (cm)</label>
+                                    <input 
+                                        type="number" 
+                                        className="w-full border p-2 rounded text-sm" 
+                                        placeholder="e.g. 175"
+                                        value={bmiData.height}
+                                        onChange={e => setBmiData({...bmiData, height: e.target.value})}
+                                    />
+                                </div>
+                            </div>
+                            <button 
+                                onClick={calculateBMI}
+                                className="w-full bg-teal-600 text-white py-2 rounded text-sm font-bold hover:bg-teal-700 transition-colors"
+                            >
+                                Calculate BMI
+                            </button>
+                            {bmiData.result && (
+                                <div className="mt-2 p-3 bg-teal-50 rounded border border-teal-100 text-center">
+                                    <p className="text-xs text-teal-600 uppercase font-bold">Result</p>
+                                    <p className="text-xl font-bold text-teal-900">{bmiData.result}</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
-                    {/* ... Dose Calc ... */}
+
+                    {/* Pediatric Dose Calculator */}
                     <div className="bg-white rounded-lg shadow border border-slate-200 p-6">
-                        <h3 className="font-bold text-slate-700 mb-4 flex items-center"><Baby className="w-5 h-5 mr-2 text-indigo-600"/> Pediatric Dose</h3>
-                        <div className="grid grid-cols-2 gap-4 mb-4">
-                            <input type="number" placeholder="Weight (kg)" className="border p-2 rounded" value={doseData.weight} onChange={e => setDoseData({...doseData, weight: e.target.value})}/>
-                            <input type="number" placeholder="mg/kg/day" className="border p-2 rounded" value={doseData.dosePerKg} onChange={e => setDoseData({...doseData, dosePerKg: e.target.value})}/>
+                        <div className="flex items-center mb-4 border-b border-slate-100 pb-2">
+                            <Baby className="w-5 h-5 mr-2 text-indigo-600"/>
+                            <h3 className="font-bold text-slate-700">Pediatric Dosage Calc</h3>
                         </div>
-                        <button onClick={calculateDose} className="w-full bg-indigo-600 text-white py-2 rounded font-bold text-sm">Calculate Total</button>
-                        {doseData.result && <div className="mt-2 p-2 bg-indigo-50 text-center font-bold text-indigo-800 rounded">{doseData.result}</div>}
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">Child Weight (kg)</label>
+                                    <input 
+                                        type="number" 
+                                        className="w-full border p-2 rounded text-sm" 
+                                        placeholder="e.g. 15"
+                                        value={doseData.weight}
+                                        onChange={e => setDoseData({...doseData, weight: e.target.value})}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1">Dose (mg/kg/day)</label>
+                                    <input 
+                                        type="number" 
+                                        className="w-full border p-2 rounded text-sm" 
+                                        placeholder="e.g. 10 (Paracetamol)"
+                                        value={doseData.dosePerKg}
+                                        onChange={e => setDoseData({...doseData, dosePerKg: e.target.value})}
+                                    />
+                                </div>
+                            </div>
+                            <button 
+                                onClick={calculateDose}
+                                className="w-full bg-indigo-600 text-white py-2 rounded text-sm font-bold hover:bg-indigo-700 transition-colors"
+                            >
+                                Calculate Total Daily Dose
+                            </button>
+                            {doseData.result && (
+                                <div className="mt-2 p-3 bg-indigo-50 rounded border border-indigo-100 text-center">
+                                    <p className="text-xs text-indigo-600 uppercase font-bold">Total Dose Required</p>
+                                    <p className="text-xl font-bold text-indigo-900">{doseData.result}</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+                
+                <div className="bg-white rounded-lg shadow border border-slate-200 p-6 mt-6">
+                    <h3 className="font-bold text-slate-700 mb-2">Common Reference Ranges</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs text-slate-600">
+                        <div className="p-2 bg-slate-50 rounded">
+                            <span className="font-bold block">Blood Pressure</span>
+                            120/80 mmHg
+                        </div>
+                         <div className="p-2 bg-slate-50 rounded">
+                            <span className="font-bold block">Fasting Sugar</span>
+                            70-100 mg/dL
+                        </div>
+                         <div className="p-2 bg-slate-50 rounded">
+                            <span className="font-bold block">HbA1c</span>
+                            {'<'} 5.7% (Normal)
+                        </div>
+                         <div className="p-2 bg-slate-50 rounded">
+                            <span className="font-bold block">BMI</span>
+                            18.5 - 24.9
+                        </div>
                     </div>
                 </div>
              </div>
@@ -931,108 +1108,6 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
           <PrescriptionModal 
             prescription={selectedRx} 
             onClose={() => setSelectedRx(null)} 
-            patientProfile={selectedRxPatient} // PASS THE FULL PROFILE HERE
-          />
-      )}
-      
-      {viewingReport && (
-          // ... report viewer modal ...
-          <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-              <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95">
-                  <div className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
-                      <div>
-                          <h3 className="font-bold flex items-center"><FileText className="w-5 h-5 mr-2"/> Diagnostic Report</h3>
-                          <p className="text-xs text-slate-400 font-mono mt-1">REF: {viewingReport.id}</p>
-                      </div>
-                      <button onClick={() => setViewingReport(null)} className="text-slate-400 hover:text-white"><X className="w-6 h-6"/></button>
-                  </div>
-                  <div className="p-8 bg-white">
-                      <div className="border-b-2 border-slate-800 pb-4 mb-6 flex justify-between items-end">
-                           <div>
-                               <h2 className="text-2xl font-bold text-slate-900 uppercase">{viewingReport.labName || 'Diagnostic Center'}</h2>
-                               <p className="text-sm text-slate-500">Pathology & Radiology Services</p>
-                           </div>
-                           <div className="text-right text-sm">
-                               <p><span className="font-bold text-slate-600">Patient:</span> {viewingReport.patientName}</p>
-                               <p><span className="font-bold text-slate-600">Date:</span> {new Date().toLocaleDateString()}</p>
-                           </div>
-                      </div>
-                      <div className="mb-6">
-                          <h4 className="font-bold text-slate-800 mb-2 uppercase text-sm border-b border-slate-200 pb-1">Test Results: {viewingReport.testName}</h4>
-                          <div className="bg-slate-50 p-4 rounded border border-slate-100 font-mono text-sm space-y-2">
-                              {/* If URL ends in PDF, show link, else image */}
-                              {viewingReport.reportUrl?.toLowerCase().endsWith('.pdf') ? (
-                                  <div className="text-center py-4">
-                                      <FileText className="w-12 h-12 text-red-500 mx-auto mb-2"/>
-                                      <a href={viewingReport.reportUrl} target="_blank" rel="noreferrer" className="text-indigo-600 underline font-bold">Download/View PDF</a>
-                                  </div>
-                              ) : (
-                                  <img src={viewingReport.reportUrl || ''} alt="Report" className="max-w-full h-auto rounded"/>
-                              )}
-                          </div>
-                      </div>
-                      <div className="text-center">
-                          <button onClick={() => setViewingReport(null)} className="bg-slate-100 text-slate-700 px-6 py-2 rounded font-bold hover:bg-slate-200">Close Viewer</button>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {/* Share Lab Link Modal */}
-      {shareLab && (
-          <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-              <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-6 animate-in zoom-in-95">
-                  <div className="flex justify-between items-center mb-4">
-                      <h3 className="font-bold text-slate-800">Share Upload Link</h3>
-                      <button onClick={() => setShareLab(null)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
-                  </div>
-                  <div className="text-center">
-                      <div className="bg-white p-4 inline-block rounded-lg shadow-sm border border-slate-200 mb-4">
-                          <QRCodeCanvas 
-                            value={`https://erxdevx.vercel.app/?mode=lab_upload&ref_id=${shareLab.id}&code=${shareLab.accessCode || '0000'}`} 
-                            size={160} 
-                          />
-                      </div>
-                      <p className="text-xs text-slate-500 mb-2">Scan or copy link to upload report</p>
-                      <div className="flex items-center gap-2 bg-slate-100 p-2 rounded border border-slate-200">
-                          <input 
-                            readOnly 
-                            className="bg-transparent text-xs w-full outline-none text-slate-600 font-mono"
-                            value={`https://erxdevx.vercel.app/?mode=lab_upload&ref_id=${shareLab.id}`}
-                          />
-                          <button 
-                            onClick={() => navigator.clipboard.writeText(`https://erxdevx.vercel.app/?mode=lab_upload&ref_id=${shareLab.id}&code=${shareLab.accessCode || '0000'}`)}
-                            className="p-1 hover:bg-white rounded text-slate-500 hover:text-indigo-600"
-                            title="Copy Link with Code"
-                          >
-                              <Copy className="w-4 h-4"/>
-                          </button>
-                      </div>
-                      <p className="text-[10px] text-slate-400 mt-2">Access Code: <strong>{shareLab.accessCode || '0000'}</strong></p>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {/* PRINT REQUISITION MODAL */}
-      {printLabRequisition && (
-          <LabRequisitionPrintLayout 
-            referral={printLabRequisition}
-            doctor={currentUser}
-            patient={myPatients.find(p => p.id === printLabRequisition.patientId) || { 
-                id: 'temp', 
-                fullName: printLabRequisition.patientName, 
-                gender: 'Other', 
-                dateOfBirth: new Date().toISOString(),
-                doctorId: currentUser.id,
-                phone: '', 
-                address: '', 
-                allergies: [], 
-                chronicConditions: [], 
-                registeredAt: new Date().toISOString() 
-            } as Patient}
-            onClose={() => setPrintLabRequisition(null)}
           />
       )}
     </div>

@@ -8,15 +8,13 @@ interface PrescriptionModalProps {
   onClose: () => void;
   onDispense?: (id: string) => void;
   isPharmacy?: boolean;
-  patientProfile?: Patient | null; // Optional: Full patient profile for accurate printing
 }
 
 export const PrescriptionModal: React.FC<PrescriptionModalProps> = ({ 
   prescription, 
   onClose, 
   onDispense, 
-  isPharmacy = false,
-  patientProfile
+  isPharmacy = false 
 }) => {
   const [showPrintLayout, setShowPrintLayout] = useState(false);
 
@@ -50,12 +48,12 @@ ${prescription.medicines.map(m => `- ${m.name} (${m.dosage}) | ${m.frequency}`).
     window.open(url, '_blank');
   };
 
-  // Reconstruct minimal patient object for print layout if profile not passed
-  const fallbackPatient: Patient = {
+  // Reconstruct minimal patient object for print layout if not available fully
+  const printPatient: Patient = {
       id: prescription.patientId || '',
       fullName: prescription.patientName,
       gender: prescription.patientGender,
-      dateOfBirth: '', // derived
+      dateOfBirth: '', // Derived from age usually
       phone: '',
       address: '',
       doctorId: prescription.doctorId,
@@ -63,8 +61,6 @@ ${prescription.medicines.map(m => `- ${m.name} (${m.dosage}) | ${m.frequency}`).
       chronicConditions: [],
       registeredAt: ''
   };
-
-  const printPatient = patientProfile || fallbackPatient;
 
   // Reconstruct doctor object for print layout
   const printDoctor = prescription.doctorDetails || {
@@ -161,7 +157,6 @@ ${prescription.medicines.map(m => `- ${m.name} (${m.dosage}) | ${m.frequency}`).
               <p className="text-xs font-bold text-slate-400 uppercase mb-1">Patient Details</p>
               <p className="text-lg font-bold text-slate-800">{prescription.patientName}</p>
               <p className="text-sm text-slate-500">{prescription.patientAge} Years, {prescription.patientGender}</p>
-              {patientProfile?.phone && <p className="text-xs text-slate-500 mt-1">Ph: {patientProfile.phone}</p>}
             </div>
           </div>
 

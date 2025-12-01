@@ -21,21 +21,6 @@ export const RESTRICTED_DRUGS = [
   "Morphine", "Fentanyl", "Oxycodone", "Codeine", "Tramadol", "Alprazolam", "Diazepam", "Lorazepam"
 ];
 
-export const COMMON_SYMPTOMS = [
-    "Fever", "Cold", "Cough (Dry)", "Cough (Wet)", "Headache", "Body Ache", 
-    "Sore Throat", "Runny Nose", "Breathlessness", "Chest Pain", "Abdominal Pain", 
-    "Vomiting", "Diarrhea", "Nausea", "Weakness", "Dizziness", "Loss of Appetite",
-    "Burning Urine", "Itching", "Joint Pain", "Back Pain"
-];
-
-export const COMMON_DIAGNOSES = [
-    "Viral Fever", "Acute Upper Respiratory Infection (URTI)", "Acute Gastroenteritis",
-    "Essential Hypertension", "Type 2 Diabetes Mellitus", "Typhoid Fever", 
-    "Dengue Fever", "Malaria", "Migraine", "Acid Peptic Disease (GERD)",
-    "Bronchitis", "Tonsillitis", "Urinary Tract Infection (UTI)", 
-    "Allergic Rhinitis", "Vitamin B12 Deficiency", "Anemia"
-];
-
 export const LOW_RISK_GENERIC_LIST = [
     "Paracetamol 500 mg Tablet",
     "Paracetamol 325 mg Tablet",
