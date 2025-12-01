@@ -46,6 +46,25 @@ export const COMMON_DIAGNOSES = [
   "Osteoarthritis"
 ];
 
+export const COMMON_LAB_TESTS = [
+  "CBC (Complete Blood Count)",
+  "Lipid Profile",
+  "Liver Function Test (LFT)",
+  "Kidney Function Test (KFT)",
+  "HbA1c",
+  "Thyroid Profile (T3, T4, TSH)",
+  "Urine Routine & Microscopy",
+  "Blood Sugar Fasting (FBS)",
+  "Blood Sugar PP (PP2BS)",
+  "Vitamin B12",
+  "Vitamin D3",
+  "Dengue NS1 Antigen",
+  "Malaria Parasite (MP)",
+  "Typhoid Widal",
+  "X-Ray Chest PA",
+  "ECG"
+];
+
 export const LOW_RISK_GENERIC_LIST = [
     "Paracetamol 500 mg Tablet",
     "Paracetamol 325 mg Tablet",

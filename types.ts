@@ -253,6 +253,15 @@ export interface LabReferral {
   id: string;
   patientId: string;
   patientName: string;
+  // Patient Snapshots - Explicitly defined to prevent type errors
+  patientGender?: string;
+  patientAge?: number;
+  patientDob?: string;
+  patientAddress?: string;
+  patientPhone?: string;
+  patientWeight?: string;
+  patientHeight?: string;
+  
   doctorId: string;
   doctorName: string;
   testName: string;

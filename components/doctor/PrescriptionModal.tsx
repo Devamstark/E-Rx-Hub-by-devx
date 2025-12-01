@@ -27,7 +27,11 @@ export const PrescriptionModal: React.FC<PrescriptionModalProps> = ({
 
   const handleShare = () => {
     // Generate link based on current domain origin
-    const origin = window.location.origin;
+    // Force production domain unless on localhost dev environment
+    const origin = (window.location.hostname === 'localhost')
+        ? window.location.origin
+        : 'https://erxdevx.vercel.app';
+        
     // Use query param mode to ensure index.html loads on static hosts, avoiding 404
     const trackingLink = `${origin}/?mode=verify&rx_id=${prescription.id}`;
 

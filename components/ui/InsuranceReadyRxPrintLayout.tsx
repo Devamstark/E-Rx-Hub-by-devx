@@ -27,6 +27,7 @@ export const InsuranceReadyRxPrintLayout: React.FC<Props> = ({
   const [dispenseAsWritten, setDispenseAsWritten] = useState(false);
 
   // Generate verification URL dynamically based on current origin, defaulting to production
+  // This ensures that even if on a preview URL, the QR code points to the real domain
   const origin = typeof window !== 'undefined' && window.location.hostname === 'localhost' 
       ? window.location.origin 
       : 'https://erxdevx.vercel.app';

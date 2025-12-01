@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Layout } from './components/ui/Layout';
 import { Login } from './components/auth/Login';
@@ -300,6 +301,14 @@ function App() {
       }
   };
 
+  const handleDeleteLabReferral = (refId: string) => {
+      const ref = labReferrals.find(r => r.id === refId);
+      setLabReferrals(prev => prev.filter(r => r.id !== refId));
+      if (currentUser && ref) {
+          dbService.logSecurityAction(currentUser.id, 'LAB_REFERRAL_DELETED', `Deleted referral for ${ref.patientName} (${ref.testName})`);
+      }
+  };
+
   // Appointment Handlers with Logging
   const handleAddAppointment = (apt: Appointment) => {
       setAppointments(prev => [...prev, apt]);
@@ -386,6 +395,7 @@ function App() {
                     onUpdatePatient={handleUpdatePatient}
                     labReferrals={labReferrals}
                     onAddLabReferral={handleAddLabReferral}
+                    onDeleteLabReferral={handleDeleteLabReferral}
                     appointments={appointments}
                     onUpdateAppointment={(apt) => setAppointments(prev => prev.map(a => a.id === apt.id ? apt : a))}
                     onAddAppointment={handleAddAppointment}

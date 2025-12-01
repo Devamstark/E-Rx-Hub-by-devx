@@ -24,7 +24,12 @@ export const LabReportUpload: React.FC<Props> = ({ refId }) => {
     useEffect(() => {
         const fetchRef = async () => {
             try {
-                const data = await dbService.getPublicLabReferral(refId);
+                // SANITIZATION: Clean the refId. 
+                // Sometimes WhatsApp/SMS appends text to the link (e.g. "REF-123 *Access Code*")
+                // We take the first part before any space or special char that isn't part of the ID.
+                const cleanRefId = refId ? refId.split(' ')[0].trim() : '';
+
+                const data = await dbService.getPublicLabReferral(cleanRefId);
                 if (data) {
                     setReferral(data);
                 } else {
