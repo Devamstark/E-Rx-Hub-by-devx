@@ -61,24 +61,35 @@ export const PrintLayout: React.FC<PrintLayoutProps> = ({ rx }) => {
       {/* Patient Meta Data */}
       <div className="flex justify-between items-end mb-6 bg-slate-50 p-4 rounded border border-slate-200 print:bg-transparent print:border-slate-300 print:border-x-0 print:border-t-0 print:rounded-none">
          <div className="flex-1">
-             <div className="flex space-x-12 text-sm">
+             <div className="grid grid-cols-2 gap-4 text-sm mb-2">
                  <div>
                      <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Patient Name</span>
                      <span className="font-bold text-slate-900 text-lg">{rx.patientName}</span>
                  </div>
                  <div>
-                     <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Age / Sex</span>
-                     <span className="font-bold text-slate-900 text-lg">{rx.patientAge}Y / {rx.patientGender}</span>
-                 </div>
-                 <div>
-                     <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Rx ID</span>
-                     <span className="font-mono font-medium text-slate-700">#{rx.id}</span>
+                     <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Age / Sex / DOB</span>
+                     <span className="font-bold text-slate-900 text-lg">
+                         {rx.patientAge}Y / {rx.patientGender}
+                         {rx.patientDOB && <span className="text-sm font-normal text-slate-600 ml-2">({new Date(rx.patientDOB).toLocaleDateString()})</span>}
+                     </span>
                  </div>
              </div>
+             {(rx.patientPhone || rx.patientAddress) && (
+                 <div className="text-xs text-slate-700">
+                     {rx.patientPhone && <span className="mr-4"><b>Phone:</b> {rx.patientPhone}</span>}
+                     {rx.patientAddress && <span><b>Address:</b> {rx.patientAddress}</span>}
+                 </div>
+             )}
          </div>
          <div className="text-right">
-             <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Date of Issue</span>
-             <span className="font-bold text-slate-900">{new Date(rx.date).toLocaleString()}</span>
+             <div className="mb-2">
+                 <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Rx ID</span>
+                 <span className="font-mono font-medium text-slate-700">#{rx.id}</span>
+             </div>
+             <div>
+                 <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-bold">Date of Issue</span>
+                 <span className="font-bold text-slate-900">{new Date(rx.date).toLocaleString()}</span>
+             </div>
          </div>
       </div>
 

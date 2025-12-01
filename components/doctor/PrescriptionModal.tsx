@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Prescription, Patient } from '../../types';
 import { X, Printer, CheckCircle, FileText, ClipboardList, Share2, AlertOctagon, Repeat, Calendar, Activity, ArrowLeft } from 'lucide-react';
@@ -53,9 +54,9 @@ ${prescription.medicines.map(m => `- ${m.name} (${m.dosage}) | ${m.frequency}`).
       id: prescription.patientId || '',
       fullName: prescription.patientName,
       gender: prescription.patientGender,
-      dateOfBirth: '', // Derived from age usually
-      phone: '',
-      address: '',
+      dateOfBirth: prescription.patientDOB || '', // Derived from age usually
+      phone: prescription.patientPhone || '',
+      address: prescription.patientAddress || '',
       doctorId: prescription.doctorId,
       allergies: [],
       chronicConditions: [],
@@ -157,6 +158,13 @@ ${prescription.medicines.map(m => `- ${m.name} (${m.dosage}) | ${m.frequency}`).
               <p className="text-xs font-bold text-slate-400 uppercase mb-1">Patient Details</p>
               <p className="text-lg font-bold text-slate-800">{prescription.patientName}</p>
               <p className="text-sm text-slate-500">{prescription.patientAge} Years, {prescription.patientGender}</p>
+              {(prescription.patientPhone || prescription.patientAddress) && (
+                  <div className="text-xs text-slate-500 mt-1">
+                      {prescription.patientPhone && <span>{prescription.patientPhone}</span>}
+                      {prescription.patientPhone && prescription.patientAddress && <span> • </span>}
+                      {prescription.patientAddress && <span className="truncate max-w-[200px] inline-block align-bottom">{prescription.patientAddress}</span>}
+                  </div>
+              )}
             </div>
           </div>
 

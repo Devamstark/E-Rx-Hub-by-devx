@@ -3,9 +3,10 @@ import React, { useState, useMemo } from 'react';
 import { DoctorProfile, VerificationStatus, Prescription, User, Patient, LabReferral, Appointment, MedicalCertificate } from '../../types';
 import { DoctorVerification } from './DoctorVerification';
 import { CreatePrescription } from './CreatePrescription';
-import { ClipboardList, User as UserIcon, History, Bell, Eye, Users, BarChart3, Calculator, Activity, TrendingUp, Scale, Baby, TestTube, FileBarChart, CheckCircle2, Clock, Send, Microscope, FileText, X, Calendar, Video, FileBadge, CheckSquare, BadgeCheck, Plus, Trash2 } from 'lucide-react';
+import { ClipboardList, User as UserIcon, History, Bell, Eye, Users, BarChart3, Calculator, Activity, TrendingUp, Scale, Baby, TestTube, FileBarChart, CheckCircle2, Clock, Send, Microscope, FileText, X, Calendar, Video, FileBadge, CheckSquare, BadgeCheck, Plus, Trash2, Printer, Share2 } from 'lucide-react';
 import { PrescriptionModal } from './PrescriptionModal';
 import { PatientManager } from './PatientManager';
+import { LabRequisitionPrint } from '../ui/LabRequisitionPrint';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
 interface DoctorDashboardProps {
@@ -158,6 +159,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
   const [preferredLab, setPreferredLab] = useState('');
   const [labNotes, setLabNotes] = useState('');
   const [viewingReport, setViewingReport] = useState<LabReferral | null>(null);
+  const [printingReferral, setPrintingReferral] = useState<LabReferral | null>(null);
 
   // --- ANALYTICS DATA PREP ---
   const analyticsData = useMemo(() => {
@@ -241,7 +243,20 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
       setLabTestName('');
       setPreferredLab('');
       setLabNotes('');
-      alert("Lab Requisition Created Successfully");
+      // Auto open print
+      setPrintingReferral(newRef);
+  };
+
+  const handleShareReferral = (ref: LabReferral) => {
+      // Force production domain for sharing unless on localhost
+      const origin = typeof window !== 'undefined' && window.location.hostname === 'localhost' 
+        ? window.location.origin 
+        : 'https://erxdevx.vercel.app';
+      const link = `${origin}/?mode=lab-upload&ref_id=${ref.id}`;
+      const text = `*Lab Requisition*\n\n*Patient:* ${ref.patientName}\n*Test:* ${ref.testName}\n*Dr:* ${ref.doctorName}\n\n*Upload Report Here:* ${link}\n\n*Access Code:* 0000`;
+      
+      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+      window.open(whatsappUrl, '_blank');
   };
 
   if (status !== VerificationStatus.VERIFIED) {
@@ -338,8 +353,155 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
 
       {/* Main Workspace */}
       <div className="lg:col-span-9">
+        
+        {/* LABS view */}
+        {view === 'LABS' && (
+             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+                 <div className="flex items-center justify-between">
+                     <h2 className="text-xl font-bold text-slate-800 flex items-center">
+                        <Microscope className="w-6 h-6 mr-2 text-indigo-600"/> Lab & Diagnostics
+                     </h2>
+                 </div>
+
+                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                     {/* Referral Form */}
+                     <div className="md:col-span-5">
+                         <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+                             <h3 className="font-bold text-slate-700 mb-4 flex items-center border-b border-slate-100 pb-2">
+                                 <Send className="w-4 h-4 mr-2 text-teal-600"/> New Test Requisition
+                             </h3>
+                             <form onSubmit={handleCreateReferral} className="space-y-4">
+                                 <div>
+                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Select Patient</label>
+                                     <select 
+                                        className="w-full border p-2 rounded text-sm"
+                                        required
+                                        value={selectedLabPatient}
+                                        onChange={e => setSelectedLabPatient(e.target.value)}
+                                     >
+                                         <option value="">-- Choose Patient --</option>
+                                         {myPatients.map(p => (
+                                             <option key={p.id} value={p.id}>{p.fullName} ({p.phone})</option>
+                                         ))}
+                                     </select>
+                                 </div>
+                                 <div>
+                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Test Name(s)</label>
+                                     <input 
+                                        className="w-full border p-2 rounded text-sm" 
+                                        placeholder="e.g. CBC, Lipid Profile, X-Ray Chest PA"
+                                        required
+                                        value={labTestName}
+                                        onChange={e => setLabTestName(e.target.value)}
+                                     />
+                                     <p className="text-[10px] text-slate-400 mt-1">Separate multiple tests with commas.</p>
+                                 </div>
+                                 <div>
+                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Preferred Lab (Optional)</label>
+                                     <input 
+                                        className="w-full border p-2 rounded text-sm" 
+                                        placeholder="e.g. Metropolis, Dr. Lal PathLabs"
+                                        value={preferredLab}
+                                        onChange={e => setPreferredLab(e.target.value)}
+                                     />
+                                 </div>
+                                 <div>
+                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Clinical Notes</label>
+                                     <textarea 
+                                        className="w-full border p-2 rounded text-sm" 
+                                        rows={2}
+                                        placeholder="Specific instructions..."
+                                        value={labNotes}
+                                        onChange={e => setLabNotes(e.target.value)}
+                                     />
+                                 </div>
+                                 <button type="submit" className="w-full bg-teal-600 text-white py-2 rounded font-bold hover:bg-teal-700 transition-colors">
+                                     Send & Print Referral
+                                 </button>
+                             </form>
+                         </div>
+                     </div>
+
+                     {/* Referral History / Reports */}
+                     <div className="md:col-span-7">
+                         <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden h-full flex flex-col">
+                             <div className="p-4 bg-slate-50 border-b border-slate-200">
+                                 <h3 className="font-bold text-slate-700 flex items-center">
+                                     <FileBarChart className="w-4 h-4 mr-2 text-indigo-600"/> Recent Activity
+                                 </h3>
+                             </div>
+                             <div className="overflow-y-auto flex-1 p-0">
+                                 <table className="w-full text-sm text-left">
+                                     <thead className="bg-white border-b border-slate-100 text-xs text-slate-500 uppercase">
+                                         <tr>
+                                             <th className="p-3">Date</th>
+                                             <th className="p-3">Patient</th>
+                                             <th className="p-3">Test</th>
+                                             <th className="p-3 text-center">Status</th>
+                                             <th className="p-3 text-right">Action</th>
+                                         </tr>
+                                     </thead>
+                                     <tbody className="divide-y divide-slate-50">
+                                         {myReferrals.length === 0 ? (
+                                             <tr><td colSpan={5} className="p-8 text-center text-slate-400 italic">No lab referrals created yet.</td></tr>
+                                         ) : (
+                                             myReferrals.map(ref => (
+                                                 <tr key={ref.id} className="hover:bg-indigo-50/50">
+                                                     <td className="p-3 text-slate-500">{new Date(ref.date).toLocaleDateString()}</td>
+                                                     <td className="p-3 font-medium text-slate-800">{ref.patientName}</td>
+                                                     <td className="p-3 text-slate-600 truncate max-w-[120px]" title={ref.testName}>{ref.testName}</td>
+                                                     <td className="p-3 text-center">
+                                                         <span className={`text-[10px] px-2 py-1 rounded-full font-bold border uppercase ${
+                                                             ref.status === 'COMPLETED' 
+                                                             ? 'bg-green-100 text-green-800 border-green-200' 
+                                                             : 'bg-amber-100 text-amber-800 border-amber-200'
+                                                         }`}>
+                                                             {ref.status === 'COMPLETED' ? 'Received' : 'Pending'}
+                                                         </span>
+                                                     </td>
+                                                     <td className="p-3 text-right">
+                                                         <div className="flex gap-2 justify-end">
+                                                             {ref.status === 'COMPLETED' ? (
+                                                                 <button 
+                                                                    onClick={() => setViewingReport(ref)}
+                                                                    className="text-xs bg-indigo-50 text-indigo-700 px-2 py-1 rounded border border-indigo-100 font-bold hover:bg-indigo-100 inline-flex items-center"
+                                                                 >
+                                                                     <FileText className="w-3 h-3 mr-1"/> View
+                                                                 </button>
+                                                             ) : (
+                                                                 <>
+                                                                     <button 
+                                                                        onClick={() => handleShareReferral(ref)}
+                                                                        className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded border border-green-200 font-bold hover:bg-green-100 inline-flex items-center"
+                                                                        title="Share via WhatsApp"
+                                                                     >
+                                                                         <Share2 className="w-3 h-3"/>
+                                                                     </button>
+                                                                     <button 
+                                                                        onClick={() => setPrintingReferral(ref)}
+                                                                        className="text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded border border-amber-200 font-bold hover:bg-amber-100 inline-flex items-center"
+                                                                     >
+                                                                         <Printer className="w-3 h-3"/>
+                                                                     </button>
+                                                                 </>
+                                                             )}
+                                                         </div>
+                                                     </td>
+                                                 </tr>
+                                             ))
+                                         )}
+                                     </tbody>
+                                 </table>
+                             </div>
+                         </div>
+                     </div>
+                 </div>
+             </div>
+        )}
+
         {view === 'APPOINTMENTS' && (
             <div className="bg-white rounded-lg shadow border border-slate-200 p-6 animate-in fade-in slide-in-from-bottom-2 relative">
+                {/* ... Appointment Logic ... */}
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-bold text-slate-800 flex items-center">
                         <Calendar className="w-6 h-6 mr-2 text-indigo-600"/> Appointment Queue
@@ -356,8 +518,6 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                         </button>
                     </div>
                 </div>
-
-                {/* NEW APPOINTMENT MODAL */}
                 {showAptForm && (
                     <div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg p-4">
                         <div className="bg-white w-full max-w-md shadow-2xl rounded-xl border border-indigo-100 p-6 animate-in zoom-in-95">
@@ -406,7 +566,6 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                         </div>
                     </div>
                 )}
-
                 {todaysAppointments.length === 0 ? (
                     <div className="text-center py-10 border-2 border-dashed border-slate-200 rounded-lg bg-slate-50">
                         <Clock className="w-12 h-12 text-slate-300 mx-auto mb-3"/>
@@ -711,127 +870,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
             </div>
         )}
 
-        {view === 'LABS' && (
-             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-                 <div className="flex items-center justify-between">
-                     <h2 className="text-xl font-bold text-slate-800 flex items-center">
-                        <Microscope className="w-6 h-6 mr-2 text-indigo-600"/> Lab & Diagnostics
-                     </h2>
-                 </div>
-
-                 <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                     {/* Referral Form */}
-                     <div className="md:col-span-5">
-                         <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-                             <h3 className="font-bold text-slate-700 mb-4 flex items-center border-b border-slate-100 pb-2">
-                                 <Send className="w-4 h-4 mr-2 text-teal-600"/> New Test Requisition
-                             </h3>
-                             <form onSubmit={handleCreateReferral} className="space-y-4">
-                                 <div>
-                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Select Patient</label>
-                                     <select 
-                                        className="w-full border p-2 rounded text-sm"
-                                        required
-                                        value={selectedLabPatient}
-                                        onChange={e => setSelectedLabPatient(e.target.value)}
-                                     >
-                                         <option value="">-- Choose Patient --</option>
-                                         {myPatients.map(p => (
-                                             <option key={p.id} value={p.id}>{p.fullName} ({p.phone})</option>
-                                         ))}
-                                     </select>
-                                 </div>
-                                 <div>
-                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Test Name(s)</label>
-                                     <input 
-                                        className="w-full border p-2 rounded text-sm" 
-                                        placeholder="e.g. CBC, Lipid Profile, X-Ray Chest PA"
-                                        required
-                                        value={labTestName}
-                                        onChange={e => setLabTestName(e.target.value)}
-                                     />
-                                     <p className="text-[10px] text-slate-400 mt-1">Separate multiple tests with commas.</p>
-                                 </div>
-                                 <div>
-                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Preferred Lab (Optional)</label>
-                                     <input 
-                                        className="w-full border p-2 rounded text-sm" 
-                                        placeholder="e.g. Metropolis, Dr. Lal PathLabs"
-                                        value={preferredLab}
-                                        onChange={e => setPreferredLab(e.target.value)}
-                                     />
-                                 </div>
-                                 <div>
-                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Clinical Notes</label>
-                                     <textarea 
-                                        className="w-full border p-2 rounded text-sm" 
-                                        rows={2}
-                                        placeholder="Specific instructions..."
-                                        value={labNotes}
-                                        onChange={e => setLabNotes(e.target.value)}
-                                     />
-                                 </div>
-                                 <button type="submit" className="w-full bg-teal-600 text-white py-2 rounded font-bold hover:bg-teal-700 transition-colors">
-                                     Send Referral
-                                 </button>
-                             </form>
-                         </div>
-                     </div>
-
-                     {/* Referral History / Reports */}
-                     <div className="md:col-span-7">
-                         <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden h-full flex flex-col">
-                             <div className="p-4 bg-slate-50 border-b border-slate-200">
-                                 <h3 className="font-bold text-slate-700 flex items-center">
-                                     <FileBarChart className="w-4 h-4 mr-2 text-indigo-600"/> Recent Activity
-                                 </h3>
-                             </div>
-                             <div className="overflow-y-auto flex-1 p-0">
-                                 <table className="w-full text-sm text-left">
-                                     <thead className="bg-white border-b border-slate-100 text-xs text-slate-500 uppercase">
-                                         <tr>
-                                             <th className="p-3">Date</th>
-                                             <th className="p-3">Patient</th>
-                                             <th className="p-3">Test</th>
-                                             <th className="p-3 text-right">Status</th>
-                                         </tr>
-                                     </thead>
-                                     <tbody className="divide-y divide-slate-50">
-                                         {myReferrals.length === 0 ? (
-                                             <tr><td colSpan={4} className="p-8 text-center text-slate-400 italic">No lab referrals created yet.</td></tr>
-                                         ) : (
-                                             myReferrals.map(ref => (
-                                                 <tr key={ref.id} className="hover:bg-indigo-50/50">
-                                                     <td className="p-3 text-slate-500">{new Date(ref.date).toLocaleDateString()}</td>
-                                                     <td className="p-3 font-medium text-slate-800">{ref.patientName}</td>
-                                                     <td className="p-3 text-slate-600 truncate max-w-[120px]" title={ref.testName}>{ref.testName}</td>
-                                                     <td className="p-3 text-right">
-                                                         {ref.status === 'COMPLETED' ? (
-                                                             <button 
-                                                                onClick={() => setViewingReport(ref)}
-                                                                className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded border border-green-200 font-bold hover:bg-green-200 inline-flex items-center"
-                                                             >
-                                                                 <CheckCircle2 className="w-3 h-3 mr-1"/> View Report
-                                                             </button>
-                                                         ) : (
-                                                             <span className="text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded border border-amber-200 font-medium inline-flex items-center">
-                                                                 <Clock className="w-3 h-3 mr-1"/> Pending
-                                                             </span>
-                                                         )}
-                                                     </td>
-                                                 </tr>
-                                             ))
-                                         )}
-                                     </tbody>
-                                 </table>
-                             </div>
-                         </div>
-                     </div>
-                 </div>
-             </div>
-        )}
-
-        {/* Report Viewer Modal */}
+        {/* ... (Report Viewer, Analytics, Tools components remain same, just rendering below) ... */}
         {viewingReport && (
             <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                 <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95">
@@ -856,32 +895,48 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
 
                         <div className="mb-6">
                             <h4 className="font-bold text-slate-800 mb-2 uppercase text-sm border-b border-slate-200 pb-1">Test Results: {viewingReport.testName}</h4>
-                            <div className="bg-slate-50 p-4 rounded border border-slate-100 font-mono text-sm space-y-2">
-                                {/* Mock Data Simulation */}
-                                <div className="flex justify-between border-b border-slate-200 pb-1 mb-1 font-bold text-slate-500">
-                                    <span>PARAMETER</span>
-                                    <span>RESULT</span>
-                                    <span>REF RANGE</span>
+                            
+                            {viewingReport.reportUrl && viewingReport.reportUrl !== 'mock_report.pdf' ? (
+                                <div className="bg-slate-50 p-4 rounded border border-slate-100 text-center">
+                                    <FileText className="w-12 h-12 text-slate-400 mx-auto mb-2"/>
+                                    <p className="text-sm text-slate-600 mb-4">Original Report File Attached</p>
+                                    <a 
+                                        href={viewingReport.reportUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded font-bold hover:bg-indigo-700"
+                                    >
+                                        View / Download PDF
+                                    </a>
                                 </div>
-                                <div className="flex justify-between">
-                                    <span>Haemoglobin</span>
-                                    <span className="font-bold">13.5 g/dL</span>
-                                    <span className="text-slate-500">12.0 - 15.0</span>
+                            ) : (
+                                <div className="bg-slate-50 p-4 rounded border border-slate-100 font-mono text-sm space-y-2">
+                                    {/* Mock Data Simulation */}
+                                    <div className="flex justify-between border-b border-slate-200 pb-1 mb-1 font-bold text-slate-500">
+                                        <span>PARAMETER</span>
+                                        <span>RESULT</span>
+                                        <span>REF RANGE</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span>Haemoglobin</span>
+                                        <span className="font-bold">13.5 g/dL</span>
+                                        <span className="text-slate-500">12.0 - 15.0</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span>Total WBC</span>
+                                        <span className="font-bold">6,500 /cumm</span>
+                                        <span className="text-slate-500">4000 - 10000</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span>Platelets</span>
+                                        <span className="font-bold">2.5 Lakhs</span>
+                                        <span className="text-slate-500">1.5 - 4.5</span>
+                                    </div>
+                                    <div className="mt-4 pt-2 border-t border-dashed border-slate-300 text-xs italic text-slate-500">
+                                        Electronically generated report. No signature required.
+                                    </div>
                                 </div>
-                                <div className="flex justify-between">
-                                    <span>Total WBC</span>
-                                    <span className="font-bold">6,500 /cumm</span>
-                                    <span className="text-slate-500">4000 - 10000</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span>Platelets</span>
-                                    <span className="font-bold">2.5 Lakhs</span>
-                                    <span className="text-slate-500">1.5 - 4.5</span>
-                                </div>
-                                <div className="mt-4 pt-2 border-t border-dashed border-slate-300 text-xs italic text-slate-500">
-                                    Electronically generated report. No signature required.
-                                </div>
-                            </div>
+                            )}
                         </div>
                         
                         <div className="text-center">
@@ -892,6 +947,14 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({
                     </div>
                 </div>
             </div>
+        )}
+
+        {/* Print Requisition Modal */}
+        {printingReferral && (
+            <LabRequisitionPrint 
+                referral={printingReferral} 
+                onClose={() => setPrintingReferral(null)}
+            />
         )}
 
         {view === 'ANALYTICS' && (

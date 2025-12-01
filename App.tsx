@@ -5,6 +5,7 @@ import { DoctorDashboard } from './components/doctor/DoctorDashboard';
 import { PharmacyDashboard } from './components/pharmacy/PharmacyDashboard';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { RxVerification } from './components/public/RxVerification';
+import { LabReportUpload } from './components/public/LabReportUpload';
 import { User, UserRole, VerificationStatus, DoctorProfile, Prescription, Patient, AuditLog, SalesReturn, LabReferral, Appointment, MedicalCertificate } from './types';
 import { dbService } from './services/db';
 import { Loader2, Clock, LogOut } from 'lucide-react';
@@ -15,15 +16,22 @@ const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 Minutes
 const WARNING_THRESHOLD_MS = 29.5 * 60 * 1000; // 29.5 Minutes (Warning 30s before)
 
 function App() {
-  // ROUTING LOGIC: Check for Public Verification Route
-  // Checks for both /verify path AND mode=verify query param to support static host fallback
+  // ROUTING LOGIC
   const urlParams = new URLSearchParams(window.location.search);
   const verifyId = urlParams.get('rx_id');
   const mode = urlParams.get('mode');
-  const isVerifyRoute = window.location.pathname === '/verify' || mode === 'verify';
+  const refId = urlParams.get('ref_id');
 
+  // 1. Verification Route
+  const isVerifyRoute = window.location.pathname === '/verify' || mode === 'verify';
   if (isVerifyRoute && verifyId) {
       return <RxVerification rxId={verifyId} />;
+  }
+
+  // 2. Lab Upload Route
+  const isLabUploadRoute = mode === 'lab-upload';
+  if (isLabUploadRoute && refId) {
+      return <LabReportUpload refId={refId} />;
   }
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);

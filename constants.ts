@@ -21,6 +21,31 @@ export const RESTRICTED_DRUGS = [
   "Morphine", "Fentanyl", "Oxycodone", "Codeine", "Tramadol", "Alprazolam", "Diazepam", "Lorazepam"
 ];
 
+export const COMMON_DIAGNOSES = [
+  "Viral Fever",
+  "Acute Bronchitis",
+  "Essential Hypertension",
+  "Type 2 Diabetes Mellitus",
+  "Acid Peptic Disease (GERD)",
+  "Migraine",
+  "Upper Respiratory Tract Infection",
+  "Acute Gastroenteritis",
+  "Urinary Tract Infection (UTI)",
+  "Allergic Rhinitis",
+  "Tension Headache",
+  "Vitamin B12 Deficiency",
+  "Iron Deficiency Anemia",
+  "Hypothyroidism",
+  "Dengue Fever",
+  "Typhoid Fever",
+  "Malaria",
+  "Pneumonia",
+  "Bronchial Asthma",
+  "Conjunctivitis",
+  "Tonsillitis",
+  "Osteoarthritis"
+];
+
 export const LOW_RISK_GENERIC_LIST = [
     "Paracetamol 500 mg Tablet",
     "Paracetamol 325 mg Tablet",

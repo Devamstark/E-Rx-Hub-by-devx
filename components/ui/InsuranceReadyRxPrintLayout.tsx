@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Prescription, Patient, User, DoctorDetailsSnapshot } from '../../types';
@@ -25,9 +26,10 @@ export const InsuranceReadyRxPrintLayout: React.FC<Props> = ({
   const [claimId, setClaimId] = useState('');
   const [dispenseAsWritten, setDispenseAsWritten] = useState(false);
 
-  // Generate verification URL dynamically based on current origin
-  // Use query param 'mode=verify' to avoid 404s on static hosts without SPA routing config
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://erxdevx.vercel.app';
+  // Generate verification URL dynamically based on current origin, defaulting to production
+  const origin = typeof window !== 'undefined' && window.location.hostname === 'localhost' 
+      ? window.location.origin 
+      : 'https://erxdevx.vercel.app';
   const verificationUrl = `${origin}/?mode=verify&rx_id=${prescription.id}`;
 
   const handlePrint = () => {
@@ -58,6 +60,11 @@ export const InsuranceReadyRxPrintLayout: React.FC<Props> = ({
   const patientAgeStr = patient.dateOfBirth 
     ? `${new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()} Yrs`
     : (prescription.patientAge ? `${prescription.patientAge} Yrs` : 'N/A');
+
+  // Use snapshot data from Prescription if available, otherwise fallback to patient prop
+  const displayAddress = prescription.patientAddress || patient.address || 'N/A';
+  const displayPhone = prescription.patientPhone || patient.phone || 'N/A';
+  const displayDOB = prescription.patientDOB || patient.dateOfBirth;
 
   // Safely handle doctor object structure which might vary between User and Snapshot
   const docName = doctor.name || doctor.doctorName;
@@ -165,12 +172,16 @@ export const InsuranceReadyRxPrintLayout: React.FC<Props> = ({
                         <span className="font-bold text-base text-slate-900">{patient.fullName}</span>
                     </div>
                     <div>
-                        <span className="block text-[9px] uppercase font-bold text-slate-400">Age / Gender</span>
-                        <span className="font-medium text-slate-900">{patientAgeStr} / {patient.gender}</span>
+                        <span className="block text-[9px] uppercase font-bold text-slate-400">Age / Gender / DOB</span>
+                        <span className="font-medium text-slate-900">
+                            {patientAgeStr} / {patient.gender} 
+                            {displayDOB && <span className="text-slate-500 font-normal ml-1">({new Date(displayDOB).toLocaleDateString()})</span>}
+                        </span>
                     </div>
                     <div>
-                        <span className="block text-[9px] uppercase font-bold text-slate-400">Address</span>
-                        <span className="block truncate text-slate-700">{patient.address || 'N/A'}</span>
+                        <span className="block text-[9px] uppercase font-bold text-slate-400">Address & Contact</span>
+                        <span className="block truncate text-slate-700">{displayAddress}</span>
+                        <span className="block text-[10px] text-slate-500 mt-0.5">Ph: {displayPhone}</span>
                     </div>
                     <div>
                         <span className="block text-[9px] uppercase font-bold text-slate-400">ABHA ID (Health ID)</span>

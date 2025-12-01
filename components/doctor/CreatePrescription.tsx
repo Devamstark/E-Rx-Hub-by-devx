@@ -1,9 +1,11 @@
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { Medicine, Prescription, User, Patient, PrescriptionTemplate, VerificationStatus } from '../../types';
-import { Plus, Trash2, Send, BrainCircuit, FileText, AlertTriangle, Info, Video, User as UserIcon, Search, Link2, UserPlus, RotateCcw, Save, Download, KeyRound, Calendar, Repeat, X, CheckCircle, MapPin, Phone, Building2, Mic, Activity, Thermometer, Gauge, ShieldCheck, CheckCircle2, Filter, ShieldAlert } from 'lucide-react';
+import { Plus, Trash2, Send, BrainCircuit, FileText, AlertTriangle, Info, Video, User as UserIcon, Search, Link2, UserPlus, RotateCcw, Save, Download, KeyRound, Calendar, Repeat, X, CheckCircle, MapPin, Phone, Building2, Mic, Activity, Thermometer, Gauge, ShieldCheck, CheckCircle2, Filter, ShieldAlert, Zap, XCircle } from 'lucide-react';
 import { analyzePrescriptionSafety } from '../../services/geminiService';
-import { LOW_RISK_GENERIC_LIST, RESTRICTED_DRUGS } from '../../constants';
+import { LOW_RISK_GENERIC_LIST, RESTRICTED_DRUGS, COMMON_DIAGNOSES } from '../../constants';
 import { dbService } from '../../services/db';
 
 interface CreatePrescriptionProps {
@@ -250,6 +252,20 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
     setAnalyzing(false);
   };
 
+  // Smart Diagnosis Logic
+  const handleSmartDiagnosis = (d: string) => {
+      const current = getValues('diagnosis');
+      if (!current) {
+          setValue('diagnosis', d);
+      } else if (!current.includes(d)) {
+          setValue('diagnosis', `${current}, ${d}`);
+      }
+  };
+
+  const clearDiagnosis = () => {
+      setValue('diagnosis', '');
+  };
+
   // Voice Dictation Logic
   const toggleVoiceInput = (field: 'DIAGNOSIS' | 'ADVICE') => {
       if (isListening) {
@@ -365,10 +381,23 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
     
     let finalPatientId = selectedPatient?.id;
     let finalPatientName = data.patientName;
+    
+    // Additional Patient Details for Snapshot
+    let finalPhone = '';
+    let finalAddress = '';
+    let finalDOB = '';
 
     // Fallback: If data.patientName is empty but we have a selected patient, use that
     if (!finalPatientName && selectedPatient) {
         finalPatientName = selectedPatient.fullName;
+        finalPhone = selectedPatient.phone;
+        finalAddress = selectedPatient.address;
+        finalDOB = selectedPatient.dateOfBirth;
+    } else if (selectedPatient) {
+        // Even if patientName is there, ensure we get other details from selectedPatient
+        finalPhone = selectedPatient.phone;
+        finalAddress = selectedPatient.address;
+        finalDOB = selectedPatient.dateOfBirth;
     }
 
     // 1. Handle New Patient Creation if in CREATE mode
@@ -398,6 +427,12 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
         onAddPatient(createdPatient);
         finalPatientId = createdPatient.id;
         finalPatientName = createdPatient.fullName;
+        
+        // Snapshot details
+        finalPhone = createdPatient.phone;
+        finalAddress = createdPatient.address;
+        finalDOB = createdPatient.dateOfBirth;
+        
     } else if (!selectedPatient && !finalPatientName) {
         alert("Please select an existing patient or create a new one.");
         return;
@@ -411,6 +446,11 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
         doctorId: currentUser.id,
         patientId: finalPatientId, 
         patientName: finalPatientName,
+        // Snapshot patient details on Rx for immutability
+        patientPhone: finalPhone,
+        patientAddress: finalAddress,
+        patientDOB: finalDOB,
+        
         doctorName: currentUser.name,
         doctorDetails: {
             name: currentUser.name,
@@ -619,6 +659,7 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
                                         )}
                                     </div>
                                     <p className="text-xs text-slate-500">{selectedPatient.gender}, {selectedPatient.phone}</p>
+                                    <p className="text-xs text-slate-400">{selectedPatient.address}</p>
                                 </div>
                             </div>
                             <button type="button" onClick={() => { setSelectedPatient(null); setValue('patientName', ''); setValue('linkedToAbha', false); }} className="text-xs text-red-600 hover:underline font-medium">Change</button>
@@ -697,6 +738,31 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
                       <label className="text-xs font-bold text-slate-500 mb-1 flex items-center"><Activity className="w-3 h-3 mr-1"/> Wt (kg)</label>
                       <input {...register('vitals.weight')} className="w-full border p-1.5 text-sm rounded" placeholder="70" />
                   </div>
+              </div>
+          </div>
+
+          <div className="mb-3">
+              <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs font-bold text-indigo-600 flex items-center gap-1">
+                      <Zap className="w-3 h-3" /> Smart Diagnosis Cards
+                  </label>
+                  {diagnosis && (
+                      <button type="button" onClick={clearDiagnosis} className="text-[10px] text-red-500 hover:underline flex items-center">
+                          <XCircle className="w-3 h-3 mr-1"/> Clear
+                      </button>
+                  )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                  {COMMON_DIAGNOSES.map(d => (
+                      <button
+                          key={d}
+                          type="button"
+                          onClick={() => handleSmartDiagnosis(d)}
+                          className="text-[10px] sm:text-xs bg-white border border-indigo-100 hover:border-indigo-300 text-slate-600 hover:text-indigo-700 hover:bg-indigo-50 px-2.5 py-1 rounded-full transition-all shadow-sm active:scale-95"
+                      >
+                          {d}
+                      </button>
+                  ))}
               </div>
           </div>
 

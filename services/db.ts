@@ -501,6 +501,34 @@ export const dbService = {
         return localRx.find(p => p.id === id) || null;
     },
 
+    async getPublicLabReferral(id: string): Promise<LabReferral | null> {
+        if (supabase) {
+            const { data: labData } = await supabase.from('lab_referrals').select('data').eq('id', 'global_lab_referrals').single();
+            if (labData && labData.data) {
+                const ref = (labData.data as LabReferral[]).find(r => r.id === id);
+                if (ref) return ref;
+            }
+        }
+        const localLabs = local.getLabReferrals();
+        return localLabs.find(r => r.id === id) || null;
+    },
+
+    async updateLabReferral(referral: LabReferral): Promise<boolean> {
+        if (supabase) {
+            const { data: labData } = await supabase.from('lab_referrals').select('data').eq('id', 'global_lab_referrals').single();
+            if (labData && labData.data) {
+                const allReferrals = labData.data as LabReferral[];
+                const updated = allReferrals.map(r => r.id === referral.id ? referral : r);
+                await supabase.from('lab_referrals').upsert({ id: 'global_lab_referrals', data: updated });
+                return true;
+            }
+        }
+        const localLabs = local.getLabReferrals();
+        const updated = localLabs.map(r => r.id === referral.id ? referral : r);
+        local.setLabReferrals(updated);
+        return true;
+    },
+
     async loadData(): Promise<{ 
         users: User[], 
         rx: Prescription[], 

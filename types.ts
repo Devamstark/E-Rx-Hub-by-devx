@@ -217,6 +217,9 @@ export interface Prescription {
   patientName: string;
   patientAge: number;
   patientGender: 'Male' | 'Female' | 'Other';
+  patientPhone?: string;    // Snapshot
+  patientAddress?: string;  // Snapshot
+  patientDOB?: string;      // Snapshot
   
   // Clinical Data
   vitals?: PrescriptionVitals;
