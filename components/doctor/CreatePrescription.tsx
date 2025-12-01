@@ -544,7 +544,7 @@ export const CreatePrescription: React.FC<CreatePrescriptionProps> = ({
                                 >
                                     <div className="font-bold text-slate-800">{rx.patientName}</div>
                                     <div className="text-xs text-slate-500 flex justify-between mt-1">
-                                        <span>{new Date(rx.date).toLocaleDateString()}</p>
+                                        <span>{new Date(rx.date).toLocaleDateString()}</span>
                                         <span className="text-indigo-600 truncate max-w-[120px]">{rx.diagnosis}</span>
                                     </div>
                                 </button>
